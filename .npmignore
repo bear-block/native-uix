@@ -1,0 +1,7 @@
+android/build/
+android/.gradle/
+ios/build/
+example/
+node_modules/
+coverage/
+*.log

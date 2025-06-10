@@ -1,0 +1,69 @@
+{
+  "name": "@bear-block/native-uix",
+  "version": "0.0.0-experimental.0",
+  "description": "Experimental native-adaptive UI components for React Native.",
+  "keywords": [
+    "react-native",
+    "new-architecture",
+    "fabric",
+    "native-ui",
+    "uikit",
+    "liquid-glass",
+    "material-3"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/bear-block/native-uix#readme",
+  "bugs": {
+    "url": "https://github.com/bear-block/native-uix/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bear-block/native-uix.git"
+  },
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "files": [
+    "src",
+    "common",
+    "ios",
+    "android/build.gradle",
+    "native-uix.podspec",
+    "react-native.config.js",
+    "README.md",
+    "LICENSE",
+    "android/src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs",
+    "pack:check": "npm pack --dry-run"
+  },
+  "peerDependencies": {
+    "react": ">=19.2.0 <20",
+    "react-native": ">=0.87.0 <0.88.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.3",
+    "react": "19.2.3",
+    "react-native": "0.87.1",
+    "typescript": "6.0.3"
+  },
+  "codegenConfig": {
+    "name": "NativeUIXSpec",
+    "type": "components",
+    "jsSrcsDir": "src/specs",
+    "android": {
+      "javaPackageName": "dev.nativeuix"
+    },
+    "ios": {
+      "componentProvider": {
+        "NativeUIXButton": "RNUXButtonComponentView",
+        "NativeUIXSwitch": "RNUXSwitchComponentView",
+        "NativeUIXSettings": "RNUXSettingsComponentView",
+        "NativeUIXSegmentedControl": "RNUXSegmentedControlComponentView"
+      }
+    }
+  }
+}
