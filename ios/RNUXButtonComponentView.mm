@@ -145,4 +145,12 @@ using namespace facebook::react;
   _button.enabled = YES;
   _button.accessibilityLabel = nil;
 }
+// React Native sets the layout direction on this view only; UIKit subviews
+// default to the app's direction, so pass it down.
+- (void)updateLayoutMetrics:(LayoutMetrics const &)layoutMetrics oldLayoutMetrics:(LayoutMetrics const &)oldLayoutMetrics
+{
+  [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
+  _button.semanticContentAttribute = self.semanticContentAttribute;
+}
+
 @end

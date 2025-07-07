@@ -136,4 +136,12 @@ using namespace facebook::react;
   _labels = @[];
   _sizeState.reset();
 }
+// React Native sets the layout direction on this view only; UIKit subviews
+// default to the app's direction, so pass it down.
+- (void)updateLayoutMetrics:(LayoutMetrics const &)layoutMetrics oldLayoutMetrics:(LayoutMetrics const &)oldLayoutMetrics
+{
+  [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
+  _control.semanticContentAttribute = self.semanticContentAttribute;
+}
+
 @end

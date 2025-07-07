@@ -176,6 +176,8 @@ static NSString *const kCellId = @"row";
 
 - (void)configureCell:(UITableViewCell *)cell row:(RNUXSettingsRow *)row animated:(BOOL)animated
 {
+  cell.semanticContentAttribute = _tableView.semanticContentAttribute;
+  cell.contentView.semanticContentAttribute = _tableView.semanticContentAttribute;
   UIListContentConfiguration *content = [cell defaultContentConfiguration];
   content.text = row.label;
   content.textProperties.color = row.disabled ? UIColor.secondaryLabelColor : UIColor.labelColor;
@@ -237,4 +239,15 @@ static NSString *const kCellId = @"row";
   [_tableView reloadData];
   [_tableView setContentOffset:CGPointZero animated:NO];
 }
+// React Native sets the layout direction on this view only; UIKit subviews
+// default to the app's direction, so pass it down.
+- (void)updateLayoutMetrics:(LayoutMetrics const &)layoutMetrics oldLayoutMetrics:(LayoutMetrics const &)oldLayoutMetrics
+{
+  [super updateLayoutMetrics:layoutMetrics oldLayoutMetrics:oldLayoutMetrics];
+  if (_tableView.semanticContentAttribute != self.semanticContentAttribute) {
+    _tableView.semanticContentAttribute = self.semanticContentAttribute;
+    [_tableView reloadData];
+  }
+}
+
 @end
