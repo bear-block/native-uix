@@ -6,6 +6,8 @@ This React Native CLI app is the interactive acceptance surface for Native UIX. 
 
 **Top segmented control**: switching tabs uses the platform's own selection motion.
 
+**Motion**: the second segmented control picks the tab transition (`TransitionView`). On iOS, launch with `-NativeUIXAutoSwitch 1` to switch tabs automatically for screen captures.
+
 **Controls tab**
 
 1. Tap **Continue**: the counter increases by exactly one per tap.
@@ -38,5 +40,7 @@ cd ios && pod install && cd .. && npm run ios
 ```
 
 The example depends on the library through `file:..`. `metro.config.js` blocks the library's own copies of `react` and `react-native` so that only one React instance is loaded.
+
+Release builds bundle JavaScript only when files under `example/` change; Gradle does not track the library's `src/`. After changing library JavaScript, run `./gradlew :app:installRelease --rerun-tasks` (or touch `App.tsx`).
 
 The iOS app uses a `SceneDelegate`, because iOS 27 terminates apps that do not adopt the UIScene lifecycle.

@@ -4,11 +4,14 @@ import {
   SegmentedControl,
   SettingsScreen,
   Switch,
+  TransitionView,
+  type TransitionMotion,
   type SettingsSection,
 } from '@bear-block/native-uix';
 import {
   Platform,
   ScrollView,
+  Settings,
   StatusBar,
   StyleSheet,
   Text,
@@ -21,6 +24,12 @@ import {
 } from 'react-native-safe-area-context';
 
 type Tab = 'controls' | 'settings';
+
+const MOTIONS = [
+  {id: 'fadeThrough', label: 'Fade through'},
+  {id: 'sharedAxisX', label: 'Shared axis'},
+  {id: 'none', label: 'None'},
+];
 
 const TABS = [
   {id: 'controls', label: 'Controls'},
@@ -40,6 +49,20 @@ export default function App(): React.JSX.Element {
 function AppContent({isDarkMode}: {isDarkMode: boolean}) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = React.useState<Tab>('controls');
+  const [motion, setMotion] = React.useState<TransitionMotion>('fadeThrough');
+
+  // Automated checks on iOS: launch with `-NativeUIXAutoSwitch 1` to switch
+  // tabs every 2.5 s, so transitions can be captured without touch input.
+  React.useEffect(() => {
+    if (Platform.OS !== 'ios' || !Settings.get('NativeUIXAutoSwitch')) {
+      return;
+    }
+    const timer = setInterval(
+      () => setTab(current => (current === 'controls' ? 'settings' : 'controls')),
+      2500,
+    );
+    return () => clearInterval(timer);
+  }, []);
   const colors = isDarkMode ? darkColors : lightColors;
 
   return (
@@ -56,11 +79,29 @@ function AppContent({isDarkMode}: {isDarkMode: boolean}) {
           onValueChange={id => setTab(id as Tab)}
         />
       </View>
-      {tab === 'controls' ? (
-        <ControlsDemo colors={colors} bottomInset={insets.bottom} />
-      ) : (
-        <SettingsDemo colors={colors} bottomInset={insets.bottom} />
-      )}
+      <View style={styles.motion}>
+        <SegmentedControl
+          accessibilityLabel="Tab transition"
+          segments={MOTIONS}
+          value={motion}
+          onValueChange={id => setMotion(id as TransitionMotion)}
+        />
+      </View>
+      <TransitionView motion={motion} style={styles.flex}>
+        {tab === 'controls' ? (
+          <ControlsDemo
+            key="controls"
+            colors={colors}
+            bottomInset={insets.bottom}
+          />
+        ) : (
+          <SettingsDemo
+            key="settings"
+            colors={colors}
+            bottomInset={insets.bottom}
+          />
+        )}
+      </TransitionView>
     </View>
   );
 }
@@ -304,7 +345,8 @@ const darkColors = {
 const styles = StyleSheet.create({
   container: {flex: 1},
   flex: {flex: 1},
-  tabs: {paddingHorizontal: 16, paddingVertical: 8},
+  tabs: {paddingHorizontal: 16, paddingTop: 8},
+  motion: {paddingHorizontal: 16, paddingVertical: 8},
   fullWidth: {width: '100%'},
   hug: {alignSelf: 'flex-start'},
   scroll: {gap: 12, paddingHorizontal: 20, paddingTop: 8},

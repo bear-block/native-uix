@@ -10,6 +10,7 @@ export default {
           'NativeUIXSwitchComponentDescriptor',
           'NativeUIXSegmentedControlComponentDescriptor',
           'NativeUIXSettingsComponentDescriptor',
+          'NativeUIXTransitionViewComponentDescriptor',
         ],
         cmakeListsPath: 'src/main/jni/CMakeLists.txt',
       },

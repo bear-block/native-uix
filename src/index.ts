@@ -12,3 +12,5 @@ export type {
   SettingsRow,
   SettingsSection,
 } from './components/settingsModel';
+export {TransitionView} from './components/TransitionView';
+export type {TransitionMotion, TransitionViewProps} from './components/TransitionView';

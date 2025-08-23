@@ -3,7 +3,7 @@
 Status: Experimental · Spike implemented · 2026-10-04
 
 ```tsx
-import {Button, SegmentedControl, Switch, SettingsScreen} from '@bear-block/native-uix';
+import {Button, SegmentedControl, SettingsScreen, Switch, TransitionView} from '@bear-block/native-uix';
 
 <Button label="Save" variant="primary" onPress={save} />
 <Button label="Delete account" destructive onPress={confirmDelete} />
@@ -13,6 +13,9 @@ import {Button, SegmentedControl, Switch, SettingsScreen} from '@bear-block/nati
   value={range}
   onValueChange={setRange}
 />
+<TransitionView motion="fadeThrough" style={{flex: 1}}>
+  {tab === 'a' ? <ScreenA key="a" /> : <ScreenB key="b" />}
+</TransitionView>
 <SettingsScreen
   title="Settings"
   sections={[{id: 'preferences', title: 'Preferences', rows: [
@@ -36,5 +39,7 @@ Switch takes the same optional `disabled` and `accessibilityLabel` props as Butt
 The Settings proposal accepts serializable rows with unique IDs. Function callbacks remain at the JS boundary. Native screens receive normalized descriptors, never serialized closures. The first supported row kinds would be `switch` and `action`; other kinds need separate contracts. A `switch` row is controlled like Switch: its `value` comes from the descriptor, and a `valueChange` event only requests a change.
 
 Each component accepts an outer `style` (margins, flex, width); Button and Switch measure themselves natively and use the result as a minimum size. Arbitrary control appearance styling is not promised. Accessibility label overrides must preserve the native value and role. Navigation and business operations run in application callbacks.
+
+`TransitionView` motion is an intent (`platform`, `fadeThrough`, `sharedAxisX`, `none`); each platform supplies its own motion, and Reduce Motion or the system animator scale always win. The library does not depend on Reanimated.
 
 See [architecture](../ARCHITECTURE.md) and [compatibility](COMPATIBILITY.md).

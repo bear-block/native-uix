@@ -15,5 +15,6 @@ class NativeUIXPackage : ReactPackage {
     NativeUIXSwitchManager(),
     NativeUIXSegmentedControlManager(),
     NativeUIXSettingsManager(),
+    NativeUIXTransitionViewManager(),
   )
 }

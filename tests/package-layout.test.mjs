@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync, readFileSync} from 'node:fs';
 
-const components = ['Button', 'Switch', 'SegmentedControl', 'Settings'];
+const components = ['Button', 'Switch', 'SegmentedControl', 'Settings', 'TransitionView'];
 
 test('every component has a Fabric spec and both native hosts', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
