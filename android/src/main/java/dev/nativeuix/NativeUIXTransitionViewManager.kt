@@ -20,7 +20,9 @@ import com.google.android.material.transition.MaterialSharedAxis
  * Animates children that React adds and removes with Material motion.
  * Incoming children use Material's transition classes. Outgoing children are
  * snapshotted first, because Fabric tears down a removed view's subtree at
- * once; the snapshot animates out in the overlay with the same motion.
+ * once; the snapshot fades (and, for shared axis, slides) out in the overlay
+ * with this file's own animation, using the Material motion values, since
+ * Material's classes need the real view.
  */
 class NativeUIXTransitionView(context: ThemedReactContext) : ReactViewGroup(context) {
   var motion = "platform"

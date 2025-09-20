@@ -49,7 +49,11 @@ export default function App(): React.JSX.Element {
 function AppContent({isDarkMode}: {isDarkMode: boolean}) {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = React.useState<Tab>('controls');
-  const [motion, setMotion] = React.useState<TransitionMotion>('fadeThrough');
+  const [motion, setMotion] = React.useState<TransitionMotion>(
+    // Automated checks on iOS: `-NativeUIXMotion none` picks the start motion.
+    () =>
+      (Platform.OS === 'ios' && Settings.get('NativeUIXMotion')) || 'fadeThrough',
+  );
 
   // Automated checks on iOS: launch with `-NativeUIXAutoSwitch 1` to switch
   // tabs every 2.5 s, so transitions can be captured without touch input.

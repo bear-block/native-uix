@@ -40,6 +40,6 @@ The Settings proposal accepts serializable rows with unique IDs. Function callba
 
 Each component accepts an outer `style` (margins, flex, width); Button and Switch measure themselves natively and use the result as a minimum size. Arbitrary control appearance styling is not promised. Accessibility label overrides must preserve the native value and role. Navigation and business operations run in application callbacks.
 
-`TransitionView` motion is an intent (`platform`, `fadeThrough`, `sharedAxisX`, `none`); each platform supplies its own motion, and Reduce Motion or the system animator scale always win. The library does not depend on Reanimated.
+`TransitionView` motion is an intent (`platform`, `fadeThrough`, `sharedAxisX`, `none`); each platform supplies its own motion — Material motion on Android, a UIKit cross-dissolve for every animated intent on iOS, which has no fade-through or shared-axis content transition — and Reduce Motion or the system animator scale always win. The library does not depend on Reanimated.
 
 See [architecture](../ARCHITECTURE.md) and [compatibility](COMPATIBILITY.md).

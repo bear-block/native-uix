@@ -6,13 +6,17 @@ import NativeUIXTransitionView, {
 } from '../specs/NativeUIXTransitionViewNativeComponent';
 
 /**
- * Motion intent; each platform supplies its own motion.
- * - `platform`: the platform's default content change (Material fade through
- *   on Android, cross-dissolve on iOS).
+ * Motion intent; each platform supplies its own motion, never another's.
+ * - `platform`: the platform's content change.
  * - `fadeThrough`: switch between unrelated content.
  * - `sharedAxisX`: move forward between related or sequential content.
  * - `none`: no animation.
- * Reduce Motion (iOS) and the animator scale (Android) always win.
+ *
+ * Android uses Material motion (`MaterialFadeThrough` by default,
+ * `MaterialSharedAxis` for `sharedAxisX`). UIKit has no equivalent of either,
+ * so iOS cross-dissolves for every animated intent; push-style motion belongs
+ * to the app's native navigator. The system animator scale (Android) and
+ * Reduce Motion (iOS) always win.
  */
 export type TransitionMotion = 'platform' | 'fadeThrough' | 'sharedAxisX' | 'none';
 

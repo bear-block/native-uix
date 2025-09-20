@@ -13,7 +13,7 @@ Five experimental components run in the React Native CLI app in [`example/`](exa
 - `Button`: UIKit button configurations on iOS (Liquid Glass on iOS 26+); Material 3 filled or outlined button on Android.
 - `Switch`: controlled; a toggle only requests a change, and the control returns to `value` if the parent rejects it.
 - `SegmentedControl`: controlled; `UISegmentedControl` on iOS, Material 3 segmented buttons on Android.
-- `TransitionView`: animates children that are replaced (change their `key`) with native motion — Material fade through or shared axis on Android, UIKit cross-dissolve, fade through or push-like slide on iOS.
+- `TransitionView`: animates children that are replaced (change their `key`) with each platform's own motion — Material fade through or shared axis on Android, UIKit cross-dissolve on iOS.
 - `SettingsScreen`: native list from row descriptors; inset grouped table on iOS, Material 3 list on Android.
 
 Debug builds have run on an iOS 27 simulator and an Android 14 emulator. Accessibility, release builds, other OS versions and performance have not been checked yet. Native UIX supports the React Native New Architecture only (React Native 0.87). Expo runtime modules are excluded.

@@ -6,23 +6,21 @@
 
 using namespace facebook::react;
 
-typedef NS_ENUM(NSInteger, RNUXMotion) {
-  RNUXMotionCrossDissolve,
-  RNUXMotionFadeThrough,
-  RNUXMotionSharedAxisX,
-  RNUXMotionNone,
-};
+// UIKit has no fade-through or shared-axis content transition; every animated
+// intent uses its cross-dissolve. Push and pop motion belongs to the app's
+// native navigator, not to this view.
+static const NSTimeInterval kCrossDissolveDuration = 0.3;
 
 /*
- * Animates children that React mounts and unmounts. Fabric removes an
+ * Cross-dissolves children that React mounts and unmounts. Fabric removes an
  * unmounted view immediately, so the outgoing child is replaced by a snapshot
- * that animates out in an overlay above the React children.
+ * that fades out in an overlay above the React children.
  */
 @interface RNUXTransitionViewComponentView () <RCTNativeUIXTransitionViewViewProtocol>
 @end
 
 @implementation RNUXTransitionViewComponentView {
-  RNUXMotion _motion;
+  BOOL _animates;
   UIView *_overlay;
   NSMapTable<UIView *, UIView *> *_preparedSnapshots;
 }
@@ -45,21 +43,7 @@ typedef NS_ENUM(NSInteger, RNUXMotion) {
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
   const auto &newProps = *std::static_pointer_cast<NativeUIXTransitionViewProps const>(props);
-  switch (newProps.motion) {
-    case NativeUIXTransitionViewMotion::FadeThrough:
-      _motion = RNUXMotionFadeThrough;
-      break;
-    case NativeUIXTransitionViewMotion::SharedAxisX:
-      _motion = RNUXMotionSharedAxisX;
-      break;
-    case NativeUIXTransitionViewMotion::None:
-      _motion = RNUXMotionNone;
-      break;
-    default: {
-      _motion = RNUXMotionCrossDissolve;
-      break;
-    }
-  }
+  _animates = newProps.motion != NativeUIXTransitionViewMotion::None;
   [super updateProps:props oldProps:oldProps];
 }
 
@@ -80,13 +64,29 @@ typedef NS_ENUM(NSInteger, RNUXMotion) {
     if (child == _overlay) {
       continue;
     }
-    UIView *snapshot = [child snapshotViewAfterScreenUpdates:NO];
+    UIView *snapshot = [self staticSnapshotOf:child];
     if (snapshot != nil) {
       [_preparedSnapshots setObject:snapshot forKey:child];
     }
   }
   // Kept until the replacing transaction mounts or unmounts a child (see
   // discardPreparedSnapshotsAfterTransaction), however long JS takes.
+}
+
+// A static image: `snapshotViewAfterScreenUpdates:` returns a live replica of
+// the render tree, which shows recycled or re-laid-out descendants once Fabric
+// tears the outgoing subtree down.
+- (UIView *)staticSnapshotOf:(UIView *)view
+{
+  if (CGRectIsEmpty(view.bounds)) {
+    return nil;
+  }
+  UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
+  UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithBounds:view.bounds format:format];
+  UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+    [view drawViewHierarchyInRect:view.bounds afterScreenUpdates:NO];
+  }];
+  return [[UIImageView alloc] initWithImage:image];
 }
 
 - (void)discardPreparedSnapshotsAfterTransaction
@@ -101,18 +101,7 @@ typedef NS_ENUM(NSInteger, RNUXMotion) {
 
 - (BOOL)shouldAnimate
 {
-  return _motion != RNUXMotionNone && self.window != nil && !CGRectIsEmpty(self.bounds);
-}
-
-- (RNUXMotion)effectiveMotion
-{
-  // Reduce Motion keeps a plain cross-dissolve, as UIKit does.
-  return UIAccessibilityIsReduceMotionEnabled() ? RNUXMotionCrossDissolve : _motion;
-}
-
-- (CGFloat)forwardSign
-{
-  return self.effectiveUserInterfaceLayoutDirection == UIUserInterfaceLayoutDirectionRightToLeft ? -1 : 1;
+  return _animates && self.window != nil && !CGRectIsEmpty(self.bounds);
 }
 
 - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
@@ -123,48 +112,16 @@ typedef NS_ENUM(NSInteger, RNUXMotion) {
     return;
   }
   UIView *child = childComponentView;
-  CGAffineTransform original = child.transform;
-  // React Native stores `opacity` in the layer; animate back to it, not to 1.
+  // React Native stores `opacity` in the layer; fade back to it, not to 1.
   CGFloat originalAlpha = child.alpha;
-  switch ([self effectiveMotion]) {
-    case RNUXMotionFadeThrough: {
-      // Material fade through: incoming fades and scales in after the outgoing fades.
-      child.alpha = 0;
-      child.transform = CGAffineTransformConcat(original, CGAffineTransformMakeScale(0.92, 0.92));
-      [UIView animateWithDuration:0.21
-                            delay:0.09
-                          options:UIViewAnimationOptionCurveEaseOut | UIViewAnimationOptionAllowUserInteraction
-                       animations:^{
-                         child.alpha = originalAlpha;
-                         child.transform = original;
-                       }
-                       completion:nil];
-      break;
-    }
-    case RNUXMotionSharedAxisX: {
-      child.transform = CGAffineTransformConcat(
-          original, CGAffineTransformMakeTranslation(self.bounds.size.width * [self forwardSign], 0));
-      UISpringTimingParameters *spring = [[UISpringTimingParameters alloc] initWithDampingRatio:1];
-      UIViewPropertyAnimator *animator = [[UIViewPropertyAnimator alloc] initWithDuration:0.35
-                                                                         timingParameters:spring];
-      [animator addAnimations:^{
-        child.transform = original;
-      }];
-      [animator startAnimation];
-      break;
-    }
-    default: {
-      child.alpha = 0;
-      [UIView animateWithDuration:0.25
-                            delay:0
-                          options:UIViewAnimationOptionAllowUserInteraction
-                       animations:^{
-                         child.alpha = originalAlpha;
-                       }
-                       completion:nil];
-      break;
-    }
-  }
+  child.alpha = 0;
+  [UIView animateWithDuration:kCrossDissolveDuration
+                        delay:0
+                      options:UIViewAnimationOptionAllowUserInteraction
+                   animations:^{
+                     child.alpha = originalAlpha;
+                   }
+                   completion:nil];
 }
 
 - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
@@ -174,7 +131,7 @@ typedef NS_ENUM(NSInteger, RNUXMotion) {
   [self discardPreparedSnapshotsAfterTransaction];
   UIView *snapshot = nil;
   if ([self shouldAnimate]) {
-    snapshot = prepared ?: [childComponentView snapshotViewAfterScreenUpdates:NO];
+    snapshot = prepared ?: [self staticSnapshotOf:childComponentView];
   }
   CGRect frame = childComponentView.frame;
   [super unmountChildComponentView:childComponentView index:index];
@@ -184,49 +141,14 @@ typedef NS_ENUM(NSInteger, RNUXMotion) {
   snapshot.frame = frame;
   [[self overlay] addSubview:snapshot];
 
-  void (^finish)(void) = ^{
-    [snapshot removeFromSuperview];
-    [self removeOverlayIfEmpty];
-  };
-  switch ([self effectiveMotion]) {
-    case RNUXMotionFadeThrough: {
-      [UIView animateWithDuration:0.09
-          delay:0
-          options:UIViewAnimationOptionCurveEaseIn
-          animations:^{
-            snapshot.alpha = 0;
-          }
-          completion:^(BOOL finished) {
-            finish();
-          }];
-      break;
-    }
-    case RNUXMotionSharedAxisX: {
-      UISpringTimingParameters *spring = [[UISpringTimingParameters alloc] initWithDampingRatio:1];
-      UIViewPropertyAnimator *animator = [[UIViewPropertyAnimator alloc] initWithDuration:0.35
-                                                                         timingParameters:spring];
-      CGFloat shift = -0.3 * self.bounds.size.width * [self forwardSign];
-      [animator addAnimations:^{
-        snapshot.transform = CGAffineTransformMakeTranslation(shift, 0);
-        snapshot.alpha = 0.6;
+  [UIView animateWithDuration:kCrossDissolveDuration
+      animations:^{
+        snapshot.alpha = 0;
+      }
+      completion:^(BOOL finished) {
+        [snapshot removeFromSuperview];
+        [self removeOverlayIfEmpty];
       }];
-      [animator addCompletion:^(UIViewAnimatingPosition position) {
-        finish();
-      }];
-      [animator startAnimation];
-      break;
-    }
-    default: {
-      [UIView animateWithDuration:0.25
-          animations:^{
-            snapshot.alpha = 0;
-          }
-          completion:^(BOOL finished) {
-            finish();
-          }];
-      break;
-    }
-  }
 }
 
 // The overlay is always the last subview, so React's child indexes stay valid.
