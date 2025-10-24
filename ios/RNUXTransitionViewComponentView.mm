@@ -3,6 +3,7 @@
 #import <react/renderer/components/NativeUIXSpec/ComponentDescriptors.h>
 #import <react/renderer/components/NativeUIXSpec/Props.h>
 #import <react/renderer/components/NativeUIXSpec/RCTComponentViewHelpers.h>
+#import <React/RCTMountingTransactionObserving.h>
 
 using namespace facebook::react;
 
@@ -16,7 +17,7 @@ static const NSTimeInterval kCrossDissolveDuration = 0.3;
  * unmounted view immediately, so the outgoing child is replaced by a snapshot
  * that fades out in an overlay above the React children.
  */
-@interface RNUXTransitionViewComponentView () <RCTNativeUIXTransitionViewViewProtocol>
+@interface RNUXTransitionViewComponentView () <RCTNativeUIXTransitionViewViewProtocol, RCTMountingTransactionObserving>
 @end
 
 @implementation RNUXTransitionViewComponentView {
@@ -52,25 +53,42 @@ static const NSTimeInterval kCrossDissolveDuration = 0.3;
   RCTNativeUIXTransitionViewHandleCommand(self, commandName, args);
 }
 
-// Runs before the transaction that replaces children; Fabric may unmount the
-// outgoing subtree's descendants before the subtree root.
+// iOS does not need the command: React Native may mount a later revision
+// before a queued command runs, so snapshots are taken in
+// mountingTransactionWillMount instead, from the transaction's own mutations.
 - (void)prepareTransition
+{
+}
+
+// Fabric removes an outgoing subtree's descendants before its root; snapshot
+// every child this transaction removes from this view while it is intact.
+- (void)mountingTransactionWillMount:(MountingTransaction const &)transaction
+                withSurfaceTelemetry:(SurfaceTelemetry const &)surfaceTelemetry
 {
   [_preparedSnapshots removeAllObjects];
   if (![self shouldAnimate]) {
     return;
   }
-  for (UIView *child in self.subviews) {
-    if (child == _overlay) {
+  for (const auto &mutation : transaction.getMutations()) {
+    if (mutation.type != ShadowViewMutation::Remove || mutation.parentTag != self.tag) {
       continue;
     }
-    UIView *snapshot = [self staticSnapshotOf:child];
-    if (snapshot != nil) {
-      [_preparedSnapshots setObject:snapshot forKey:child];
+    for (UIView *child in self.subviews) {
+      if (child != _overlay && child.tag == mutation.oldChildShadowView.tag) {
+        UIView *snapshot = [self staticSnapshotOf:child];
+        if (snapshot != nil) {
+          [_preparedSnapshots setObject:snapshot forKey:child];
+        }
+        break;
+      }
     }
   }
-  // Kept until the replacing transaction mounts or unmounts a child (see
-  // discardPreparedSnapshotsAfterTransaction), however long JS takes.
+}
+
+- (void)mountingTransactionDidMount:(MountingTransaction const &)transaction
+               withSurfaceTelemetry:(SurfaceTelemetry const &)surfaceTelemetry
+{
+  [_preparedSnapshots removeAllObjects];
 }
 
 // A static image: `snapshotViewAfterScreenUpdates:` returns a live replica of
@@ -89,16 +107,6 @@ static const NSTimeInterval kCrossDissolveDuration = 0.3;
   return [[UIImageView alloc] initWithImage:image];
 }
 
-- (void)discardPreparedSnapshotsAfterTransaction
-{
-  if (_preparedSnapshots.count == 0) {
-    return;
-  }
-  dispatch_async(dispatch_get_main_queue(), ^{
-    [self->_preparedSnapshots removeAllObjects];
-  });
-}
-
 - (BOOL)shouldAnimate
 {
   return _animates && self.window != nil && !CGRectIsEmpty(self.bounds);
@@ -107,7 +115,6 @@ static const NSTimeInterval kCrossDissolveDuration = 0.3;
 - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
 {
   [super mountChildComponentView:childComponentView index:index];
-  [self discardPreparedSnapshotsAfterTransaction];
   if (![self shouldAnimate]) {
     return;
   }
@@ -128,7 +135,6 @@ static const NSTimeInterval kCrossDissolveDuration = 0.3;
 {
   UIView *prepared = [_preparedSnapshots objectForKey:childComponentView];
   [_preparedSnapshots removeObjectForKey:childComponentView];
-  [self discardPreparedSnapshotsAfterTransaction];
   UIView *snapshot = nil;
   if ([self shouldAnimate]) {
     snapshot = prepared ?: [self staticSnapshotOf:childComponentView];

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import type {StyleProp, ViewStyle} from 'react-native';
+import {Platform, type StyleProp, type ViewStyle} from 'react-native';
 
 import NativeUIXTransitionView, {
   Commands,
@@ -38,11 +38,13 @@ export function TransitionView({
   const shown = React.useRef(children);
   const [, rerender] = React.useReducer((count: number) => count + 1, 0);
 
-  // When the child keys change, keep the outgoing children for one more
-  // commit, ask native to snapshot them, then render the new children. Fabric
-  // tears down an outgoing subtree's descendants before its root, so a later
-  // snapshot would be empty.
-  const swapPending = keysOf(shown.current) !== keysOf(children);
+  // Android: when the child keys change, keep the outgoing children for one
+  // more commit and ask native to snapshot them (view commands run before the
+  // next mount batch), then render the new children. Fabric tears down an
+  // outgoing subtree's descendants before its root, so a later snapshot would
+  // be empty. iOS snapshots from the mounting transaction itself.
+  const swapPending =
+    Platform.OS === 'android' && keysOf(shown.current) !== keysOf(children);
   if (!swapPending) {
     shown.current = children;
   }
