@@ -61,9 +61,11 @@ function AppContent({isDarkMode}: {isDarkMode: boolean}) {
     if (Platform.OS !== 'ios' || !Settings.get('NativeUIXAutoSwitch')) {
       return;
     }
+    // `-NativeUIXAutoSwitchMs 200` switches faster, to test interrupted transitions.
+    const interval = Number(Settings.get('NativeUIXAutoSwitchMs')) || 2500;
     const timer = setInterval(
       () => setTab(current => (current === 'controls' ? 'settings' : 'controls')),
-      2500,
+      interval,
     );
     return () => clearInterval(timer);
   }, []);

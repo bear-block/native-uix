@@ -1,9 +1,10 @@
 #import "RNUXTransitionViewComponentView.h"
 
+#import <QuartzCore/QuartzCore.h>
+#import <React/RCTMountingTransactionObserving.h>
 #import <react/renderer/components/NativeUIXSpec/ComponentDescriptors.h>
 #import <react/renderer/components/NativeUIXSpec/Props.h>
 #import <react/renderer/components/NativeUIXSpec/RCTComponentViewHelpers.h>
-#import <React/RCTMountingTransactionObserving.h>
 
 using namespace facebook::react;
 
@@ -11,19 +12,24 @@ using namespace facebook::react;
 // intent uses its cross-dissolve. Push and pop motion belongs to the app's
 // native navigator, not to this view.
 static const NSTimeInterval kCrossDissolveDuration = 0.3;
+static NSString *const kTransitionKey = @"NativeUIXCrossDissolve";
 
 /*
- * Cross-dissolves children that React mounts and unmounts. Fabric removes an
- * unmounted view immediately, so the outgoing child is replaced by a snapshot
- * that fades out in an overlay above the React children.
+ * Cross-dissolves when React adds or removes children. Just before the
+ * mounting transaction runs, the view renders what is on screen right now
+ * (including a transition still in progress) into a layer above the children
+ * and fades that layer out, while the new children appear at full opacity
+ * below it; image over content at fading alpha is a linear cross-dissolve.
+ * No child opacity is animated, so Liquid Glass and other visual effects render
+ * correctly, and an interrupted transition continues from what is visible
+ * instead of jumping to the last committed state, as a `CATransition` would.
  */
 @interface RNUXTransitionViewComponentView () <RCTNativeUIXTransitionViewViewProtocol, RCTMountingTransactionObserving>
 @end
 
 @implementation RNUXTransitionViewComponentView {
   BOOL _animates;
-  UIView *_overlay;
-  NSMapTable<UIView *, UIView *> *_preparedSnapshots;
+  CALayer *_fadeLayer;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -35,8 +41,8 @@ static const NSTimeInterval kCrossDissolveDuration = 0.3;
 {
   if (self = [super initWithFrame:frame]) {
     _props = std::make_shared<const NativeUIXTransitionViewProps>();
+    _animates = YES;
     self.clipsToBounds = YES;
-    _preparedSnapshots = [NSMapTable weakToStrongObjectsMapTable];
   }
   return self;
 }
@@ -53,138 +59,84 @@ static const NSTimeInterval kCrossDissolveDuration = 0.3;
   RCTNativeUIXTransitionViewHandleCommand(self, commandName, args);
 }
 
-// iOS does not need the command: React Native may mount a later revision
-// before a queued command runs, so snapshots are taken in
-// mountingTransactionWillMount instead, from the transaction's own mutations.
+// Android needs the command to snapshot outgoing children; iOS does not.
 - (void)prepareTransition
 {
 }
 
-// Fabric removes an outgoing subtree's descendants before its root; snapshot
-// every child this transaction removes from this view while it is intact.
+// The transition must be added in the same Core Animation transaction as the
+// child changes, so it is added just before this mounting transaction runs.
 - (void)mountingTransactionWillMount:(MountingTransaction const &)transaction
                 withSurfaceTelemetry:(SurfaceTelemetry const &)surfaceTelemetry
 {
-  [_preparedSnapshots removeAllObjects];
-  if (![self shouldAnimate]) {
+  if (self.window == nil || CGRectIsEmpty(self.bounds)) {
     return;
   }
+  // Props in this transaction are not applied yet; a `motion` change that
+  // arrives together with the new children must decide this transition.
+  BOOL animates = _animates;
+  BOOL changesChildren = NO;
   for (const auto &mutation : transaction.getMutations()) {
-    if (mutation.type != ShadowViewMutation::Remove || mutation.parentTag != self.tag) {
-      continue;
-    }
-    for (UIView *child in self.subviews) {
-      if (child != _overlay && child.tag == mutation.oldChildShadowView.tag) {
-        UIView *snapshot = [self staticSnapshotOf:child];
-        if (snapshot != nil) {
-          [_preparedSnapshots setObject:snapshot forKey:child];
-        }
-        break;
+    if (mutation.type == ShadowViewMutation::Update && mutation.newChildShadowView.tag == self.tag) {
+      auto props = std::static_pointer_cast<NativeUIXTransitionViewProps const>(mutation.newChildShadowView.props);
+      if (props) {
+        animates = props->motion != NativeUIXTransitionViewMotion::None;
       }
+    } else if (
+        (mutation.type == ShadowViewMutation::Insert || mutation.type == ShadowViewMutation::Remove) &&
+        mutation.parentTag == self.tag) {
+      changesChildren = YES;
     }
   }
-}
-
-- (void)mountingTransactionDidMount:(MountingTransaction const &)transaction
-               withSurfaceTelemetry:(SurfaceTelemetry const &)surfaceTelemetry
-{
-  [_preparedSnapshots removeAllObjects];
-}
-
-// A static image: `snapshotViewAfterScreenUpdates:` returns a live replica of
-// the render tree, which shows recycled or re-laid-out descendants once Fabric
-// tears the outgoing subtree down.
-- (UIView *)staticSnapshotOf:(UIView *)view
-{
-  if (CGRectIsEmpty(view.bounds)) {
-    return nil;
+  if (animates && changesChildren) {
+    [self crossDissolveFromScreen];
   }
-  UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
-  UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithBounds:view.bounds format:format];
+}
+
+- (void)crossDissolveFromScreen
+{
+  UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithBounds:self.bounds
+                                                                               format:[UIGraphicsImageRendererFormat preferredFormat]];
   UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
-    [view drawViewHierarchyInRect:view.bounds afterScreenUpdates:NO];
+    // Draws what is visible now, including a fade layer still in progress.
+    [self drawViewHierarchyInRect:self.bounds afterScreenUpdates:NO];
   }];
-  return [[UIImageView alloc] initWithImage:image];
+  [self removeFadeLayer];
+
+  CALayer *fade = [CALayer layer];
+  fade.frame = self.layer.bounds;
+  fade.contents = (__bridge id)image.CGImage;
+  fade.contentsScale = image.scale;
+  fade.zPosition = CGFLOAT_MAX; // stays above children React inserts later
+  [self.layer addSublayer:fade];
+  _fadeLayer = fade;
+
+  [CATransaction begin];
+  [CATransaction setCompletionBlock:^{
+    if (self->_fadeLayer == fade) {
+      [self removeFadeLayer];
+    }
+  }];
+  CABasicAnimation *animation = [CABasicAnimation animationWithKeyPath:@"opacity"];
+  animation.fromValue = @1;
+  animation.toValue = @0;
+  animation.duration = kCrossDissolveDuration;
+  animation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+  fade.opacity = 0;
+  [fade addAnimation:animation forKey:kTransitionKey];
+  [CATransaction commit];
 }
 
-- (BOOL)shouldAnimate
+- (void)removeFadeLayer
 {
-  return _animates && self.window != nil && !CGRectIsEmpty(self.bounds);
-}
-
-- (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
-{
-  [super mountChildComponentView:childComponentView index:index];
-  if (![self shouldAnimate]) {
-    return;
-  }
-  UIView *child = childComponentView;
-  // React Native stores `opacity` in the layer; fade back to it, not to 1.
-  CGFloat originalAlpha = child.alpha;
-  child.alpha = 0;
-  [UIView animateWithDuration:kCrossDissolveDuration
-                        delay:0
-                      options:UIViewAnimationOptionAllowUserInteraction
-                   animations:^{
-                     child.alpha = originalAlpha;
-                   }
-                   completion:nil];
-}
-
-- (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
-{
-  UIView *prepared = [_preparedSnapshots objectForKey:childComponentView];
-  [_preparedSnapshots removeObjectForKey:childComponentView];
-  UIView *snapshot = nil;
-  if ([self shouldAnimate]) {
-    snapshot = prepared ?: [self staticSnapshotOf:childComponentView];
-  }
-  CGRect frame = childComponentView.frame;
-  [super unmountChildComponentView:childComponentView index:index];
-  if (snapshot == nil) {
-    return;
-  }
-  snapshot.frame = frame;
-  [[self overlay] addSubview:snapshot];
-
-  [UIView animateWithDuration:kCrossDissolveDuration
-      animations:^{
-        snapshot.alpha = 0;
-      }
-      completion:^(BOOL finished) {
-        [snapshot removeFromSuperview];
-        [self removeOverlayIfEmpty];
-      }];
-}
-
-// The overlay is always the last subview, so React's child indexes stay valid.
-- (UIView *)overlay
-{
-  if (_overlay == nil) {
-    _overlay = [[UIView alloc] initWithFrame:self.bounds];
-    _overlay.userInteractionEnabled = NO;
-    _overlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-  }
-  if (_overlay.superview != self) {
-    [self addSubview:_overlay];
-  } else {
-    [self bringSubviewToFront:_overlay];
-  }
-  return _overlay;
-}
-
-- (void)removeOverlayIfEmpty
-{
-  if (_overlay.subviews.count == 0) {
-    [_overlay removeFromSuperview];
-  }
+  [_fadeLayer removeFromSuperlayer];
+  _fadeLayer = nil;
 }
 
 - (void)prepareForRecycle
 {
   [super prepareForRecycle];
-  [_preparedSnapshots removeAllObjects];
-  [_overlay.subviews makeObjectsPerformSelector:@selector(removeFromSuperview)];
-  [_overlay removeFromSuperview];
+  [self removeFadeLayer];
+  _animates = YES;
 }
 @end
