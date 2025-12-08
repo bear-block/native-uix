@@ -12,13 +12,12 @@ using namespace facebook::react;
 // intent uses its cross-dissolve. Push and pop motion belongs to the app's
 // native navigator, not to this view.
 static const NSTimeInterval kCrossDissolveDuration = 0.3;
-static NSString *const kTransitionKey = @"NativeUIXCrossDissolve";
 
 /*
  * Cross-dissolves when React adds or removes children. Just before the
- * mounting transaction runs, the view renders what is on screen right now
- * (including a transition still in progress) into a layer above the children
- * and fades that layer out, while the new children appear at full opacity
+ * mounting transaction runs, the view takes a snapshot of what is on screen
+ * right now (including a transition still in progress), places it above the
+ * children and fades it out, while the new children appear at full opacity
  * below it; image over content at fading alpha is a linear cross-dissolve.
  * No child opacity is animated, so Liquid Glass and other visual effects render
  * correctly, and an interrupted transition continues from what is visible
@@ -29,7 +28,7 @@ static NSString *const kTransitionKey = @"NativeUIXCrossDissolve";
 
 @implementation RNUXTransitionViewComponentView {
   BOOL _animates;
-  CALayer *_fadeLayer;
+  UIView *_snapshot;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -95,48 +94,48 @@ static NSString *const kTransitionKey = @"NativeUIXCrossDissolve";
 
 - (void)crossDissolveFromScreen
 {
-  UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithBounds:self.bounds
-                                                                               format:[UIGraphicsImageRendererFormat preferredFormat]];
-  UIImage *image = [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
-    // Draws what is visible now, including a fade layer still in progress.
-    [self drawViewHierarchyInRect:self.bounds afterScreenUpdates:NO];
-  }];
-  [self removeFadeLayer];
-
-  CALayer *fade = [CALayer layer];
-  fade.frame = self.layer.bounds;
-  fade.contents = (__bridge id)image.CGImage;
-  fade.contentsScale = image.scale;
-  fade.zPosition = CGFLOAT_MAX; // stays above children React inserts later
-  [self.layer addSublayer:fade];
-  _fadeLayer = fade;
+  // The render server's copy of what is visible now, including a fade still
+  // in progress; about 1 ms, where rasterizing the hierarchy took 30-40 ms on
+  // the main thread and dropped the first frames of the fade.
+  UIView *snapshot = [self snapshotViewAfterScreenUpdates:NO];
+  if (snapshot == nil) {
+    return;
+  }
+  [self removeSnapshot];
+  // Only the snapshot's layer joins this view: a subview would enter React
+  // Native's child bookkeeping (indexes, removeClippedSubviews tracking).
+  _snapshot = snapshot;
+  CALayer *layer = snapshot.layer;
+  layer.frame = self.layer.bounds;
+  layer.zPosition = CGFLOAT_MAX;
+  [self.layer addSublayer:layer];
 
   [CATransaction begin];
   [CATransaction setCompletionBlock:^{
-    if (self->_fadeLayer == fade) {
-      [self removeFadeLayer];
+    if (self->_snapshot == snapshot) {
+      [self removeSnapshot];
     }
   }];
-  CABasicAnimation *animation = [CABasicAnimation animationWithKeyPath:@"opacity"];
-  animation.fromValue = @1;
-  animation.toValue = @0;
-  animation.duration = kCrossDissolveDuration;
-  animation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-  fade.opacity = 0;
-  [fade addAnimation:animation forKey:kTransitionKey];
+  CABasicAnimation *fade = [CABasicAnimation animationWithKeyPath:@"opacity"];
+  fade.fromValue = @1;
+  fade.toValue = @0;
+  fade.duration = kCrossDissolveDuration;
+  fade.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+  layer.opacity = 0;
+  [layer addAnimation:fade forKey:@"opacity"];
   [CATransaction commit];
 }
 
-- (void)removeFadeLayer
+- (void)removeSnapshot
 {
-  [_fadeLayer removeFromSuperlayer];
-  _fadeLayer = nil;
+  [_snapshot.layer removeFromSuperlayer];
+  _snapshot = nil;
 }
 
 - (void)prepareForRecycle
 {
   [super prepareForRecycle];
-  [self removeFadeLayer];
+  [self removeSnapshot];
   _animates = YES;
 }
 @end
