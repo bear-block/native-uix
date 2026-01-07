@@ -19,11 +19,8 @@ import com.google.android.material.button.MaterialButtonToggleGroup
 
 /** Material 3 segmented buttons: a single-selection toggle group. */
 class NativeUIXSegmentedControlView(context: ThemedReactContext) : NativeUIXHostLayout(context) {
-  private val themed = materialContext(context)
-  private val group = MaterialButtonToggleGroup(themed).apply {
-    isSingleSelection = true
-    isSelectionRequired = true
-  }
+  private var themed = materialContext(context)
+  private var group = createGroup()
   private var labels: List<String> = emptyList()
   private var buttonIds: List<Int> = emptyList()
   private var applying = false
@@ -32,17 +29,34 @@ class NativeUIXSegmentedControlView(context: ThemedReactContext) : NativeUIXHost
   private var disabled = false
 
   init {
-    group.addOnButtonCheckedListener { _, checkedId, isChecked ->
+    addView(group, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+  }
+
+  private fun createGroup() = MaterialButtonToggleGroup(themed).apply {
+    isSingleSelection = true
+    isSelectionRequired = true
+    addOnButtonCheckedListener { _, checkedId, isChecked ->
       if (applying || !isChecked) return@addOnButtonCheckedListener
       val index = buttonIds.indexOf(checkedId)
       if (index < 0 || index == selectedIndex) return@addOnButtonCheckedListener
       selectedIndex = index
-      dispatchNativeEvent(
+      this@NativeUIXSegmentedControlView.dispatchNativeEvent(
         "topSelectionRequest",
         Arguments.createMap().apply { putInt("index", index) },
       )
     }
+  }
+
+  override fun onNightModeChanged() {
+    val description = group.contentDescription
+    removeView(group)
+    themed = materialContext(context)
+    group = createGroup().apply { contentDescription = description }
     addView(group, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+    val current = labels
+    labels = emptyList()
+    buttonIds = emptyList()
+    rebuildButtons(current)
   }
 
   fun setLabels(array: ReadableArray?) {
@@ -53,24 +67,32 @@ class NativeUIXSegmentedControlView(context: ThemedReactContext) : NativeUIXHost
       // Same segments, new titles: update in place.
       next.forEachIndexed { index, label -> group.findViewById<MaterialButton>(buttonIds[index]).text = label }
     } else {
-      group.removeAllViews()
-      buttonIds = next.map { label ->
-        val button = MaterialButton(themed, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
-          id = View.generateViewId()
-          text = label
-          isAllCaps = false
-          isCheckable = true
-          isEnabled = !disabled
-        }
-        group.addView(button, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        button.id
-      }
-      selectedIndex = -1
+      rebuildButtons(next)
     }
     labels = next
     applying = false
     applySelection()
     requestLayout()
+  }
+
+  private fun rebuildButtons(next: List<String>) {
+    applying = true
+    group.removeAllViews()
+    buttonIds = next.map { label ->
+      val button = MaterialButton(themed, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+        id = View.generateViewId()
+        text = label
+        isAllCaps = false
+        isCheckable = true
+        isEnabled = !disabled
+      }
+      group.addView(button, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+      button.id
+    }
+    selectedIndex = -1
+    labels = next
+    applying = false
+    applySelection()
   }
 
   /** Applies a committed selection without reporting it as a user request. */

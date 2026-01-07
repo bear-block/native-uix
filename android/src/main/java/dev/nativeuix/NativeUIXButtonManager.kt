@@ -18,7 +18,16 @@ import com.google.android.material.color.MaterialColors
 class NativeUIXButtonView(context: ThemedReactContext) : NativeUIXHostLayout(context) {
   // One button for the view's lifetime: replacing it would cut the ripple of
   // the press that caused the update (for example a tab that becomes primary).
-  private val button = MaterialButton(materialContext(context)).apply {
+  private var button = createButton()
+  private var primary: Boolean? = null
+  private var destructive: Boolean? = null
+
+  init {
+    addView(button, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+    setStyle(primary = false, destructive = false)
+  }
+
+  private fun createButton() = MaterialButton(materialContext(context)).apply {
     isAllCaps = false
     setOnClickListener {
       this@NativeUIXButtonView.dispatchNativeEvent(
@@ -27,12 +36,21 @@ class NativeUIXButtonView(context: ThemedReactContext) : NativeUIXHostLayout(con
       )
     }
   }
-  private var primary: Boolean? = null
-  private var destructive: Boolean? = null
 
-  init {
+  override fun onNightModeChanged() {
+    val old = button
+    button = createButton().apply {
+      text = old.text
+      isEnabled = old.isEnabled
+      contentDescription = old.contentDescription
+    }
+    removeView(old)
     addView(button, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-    setStyle(primary = false, destructive = false)
+    val primary = this.primary ?: false
+    val destructive = this.destructive ?: false
+    this.primary = null
+    this.destructive = null
+    setStyle(primary, destructive)
   }
 
   /** Restyles in place as Material 3 filled (primary) or outlined (secondary). */

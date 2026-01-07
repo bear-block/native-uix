@@ -17,13 +17,21 @@ import kotlin.math.abs
 // Cached per React context: building a dynamic-color theme per view is costly.
 // Values are weak too, because each wrapper references its key; views keep the
 // wrapper alive while they exist.
-private val materialContexts = java.util.WeakHashMap<Context, java.lang.ref.WeakReference<Context>>()
+private class CachedTheme(val nightMode: Int, val context: java.lang.ref.WeakReference<Context>)
 
-internal fun materialContext(context: Context): Context =
-  materialContexts[context]?.get()
-    ?: DynamicColors.wrapContextIfAvailable(
-      ContextThemeWrapper(context, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar),
-    ).also { materialContexts[context] = java.lang.ref.WeakReference(it) }
+private val materialContexts = java.util.WeakHashMap<Context, CachedTheme>()
+
+internal fun nightMode(context: Context): Int =
+  context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+
+// A theme resolves DayNight once, so the cache is keyed by night mode too.
+internal fun materialContext(context: Context): Context {
+  val night = nightMode(context)
+  materialContexts[context]?.takeIf { it.nightMode == night }?.context?.get()?.let { return it }
+  return DynamicColors.wrapContextIfAvailable(
+    ContextThemeWrapper(context, com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar),
+  ).also { materialContexts[context] = CachedTheme(night, java.lang.ref.WeakReference(it)) }
+}
 
 internal class NativeUIXEvent(
   surfaceId: Int,
@@ -66,6 +74,22 @@ open class NativeUIXHostLayout(context: Context) : FrameLayout(context) {
   }
   private var layoutPending = false
   private var measuring = false
+  private var appliedNightMode = nightMode(context)
+
+  // React Native's activity handles uiMode changes itself, so views are not
+  // recreated when dark mode toggles; hosts rebuild their Material widgets.
+  override fun onConfigurationChanged(newConfig: android.content.res.Configuration?) {
+    super.onConfigurationChanged(newConfig)
+    val night = nightMode(context)
+    if (night != appliedNightMode) {
+      appliedNightMode = night
+      onNightModeChanged()
+      requestLayout()
+    }
+  }
+
+  /** Rebuild widgets from a fresh Material theme, keeping current props. */
+  protected open fun onNightModeChanged() {}
 
   override fun requestLayout() {
     super.requestLayout()

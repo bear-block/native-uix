@@ -14,7 +14,9 @@ import com.google.android.material.materialswitch.MaterialSwitch
 
 class NativeUIXSwitchView(context: ThemedReactContext) : NativeUIXHostLayout(context) {
   private var applyingValue = false
-  private val switch = MaterialSwitch(materialContext(context)).apply {
+  private var switch = createSwitch()
+
+  private fun createSwitch() = MaterialSwitch(materialContext(context)).apply {
     setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
     setOnCheckedChangeListener { _, checked ->
       if (applyingValue) return@setOnCheckedChangeListener
@@ -26,6 +28,20 @@ class NativeUIXSwitchView(context: ThemedReactContext) : NativeUIXHostLayout(con
   }
 
   init {
+    addView(switch, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+  }
+
+  override fun onNightModeChanged() {
+    val old = switch
+    applyingValue = true
+    switch = createSwitch().apply {
+      text = old.text
+      isChecked = old.isChecked
+      isEnabled = old.isEnabled
+      contentDescription = old.contentDescription
+    }
+    applyingValue = false
+    removeView(old)
     addView(switch, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
   }
 

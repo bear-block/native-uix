@@ -38,7 +38,7 @@ private const val TYPE_SWITCH = 3
 
 /** Native Material 3 settings list. Rows are recycled; only visible rows exist. */
 class NativeUIXSettingsView(context: ThemedReactContext) : NativeUIXHostLayout(context) {
-  private val themed: Context = materialContext(context)
+  private var themed: Context = materialContext(context)
   private var title = ""
   private var items: List<SettingsItem> = emptyList()
   private var lastItems: ReadableArray? = null
@@ -53,6 +53,18 @@ class NativeUIXSettingsView(context: ThemedReactContext) : NativeUIXHostLayout(c
 
   init {
     addView(list, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+  }
+
+  override fun onNightModeChanged() {
+    themed = materialContext(context)
+    list.setBackgroundColor(MaterialColors.getColor(themed, com.google.android.material.R.attr.colorSurface, 0))
+    // Re-attaching the adapter recreates every row with the new theme; the
+    // layout manager state keeps the user's scroll position.
+    val scrollState = list.layoutManager?.onSaveInstanceState()
+    list.recycledViewPool.clear()
+    list.adapter = null
+    list.adapter = adapter
+    scrollState?.let { list.layoutManager?.onRestoreInstanceState(it) }
   }
 
   fun setScreenTitle(value: String?) {
