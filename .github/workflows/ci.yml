@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js:
+    name: Typecheck, tests, package contents
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm pack --dry-run
+
+  android:
+    name: Android example (release)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            example/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+          cache: gradle
+      - run: npm ci
+      - run: npm ci
+        working-directory: example
+      - run: npx tsc --noEmit
+        working-directory: example
+      - name: Build
+        working-directory: example/android
+        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+
+  ios:
+    name: iOS example (simulator)
+    # Liquid Glass button configurations need the iOS 26 SDK.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            example/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: example
+      - run: pod install
+        working-directory: example/ios
+      - name: Build
+        working-directory: example/ios
+        run: >
+          xcodebuild -workspace NativeUIXExample.xcworkspace -scheme NativeUIXExample
+          -configuration Release -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build | tail -n 40; exit ${PIPESTATUS[0]}
+        shell: bash
+
+  packed-consumer:
+    name: Packed tarball in a new React Native app (Android)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+      - run: npm ci
+      - name: Pack
+        run: npm pack --pack-destination "$RUNNER_TEMP"
+      - name: Create a new React Native app
+        working-directory: ${{ runner.temp }}
+        run: >
+          npx --yes @react-native-community/cli@20.2.0 init NUXConsumer --directory consumer
+          --version 0.87.1 --skip-git-init --install-pods false --pm npm
+      - name: Install the tarball
+        working-directory: ${{ runner.temp }}/consumer
+        run: npm install "$RUNNER_TEMP"/bear-block-native-uix-*.tgz
+      - name: Use every component
+        working-directory: ${{ runner.temp }}/consumer
+        run: cp "$GITHUB_WORKSPACE/tests/consumer/App.tsx" App.tsx && npx tsc --noEmit
+      - name: Build
+        working-directory: ${{ runner.temp }}/consumer/android
+        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
