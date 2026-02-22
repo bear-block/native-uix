@@ -1,8 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {existsSync, readFileSync} from 'node:fs';
+import {existsSync, readdirSync, readFileSync} from 'node:fs';
 
-const components = ['Button', 'Switch', 'SegmentedControl', 'Settings', 'TransitionView'];
+const components = ['Button', 'Switch', 'SegmentedControl', 'Settings', 'TransitionView', 'TabContent', 'TabPage', 'ScrollingList', 'Stack', 'StackScreen'];
+
+const androidDir = 'android/src/main/java/dev/nativeuix';
+const androidSources = readdirSync(androidDir)
+  .map(file => readFileSync(`${androidDir}/${file}`, 'utf8'))
+  .join('\n');
 
 test('every component has a Fabric spec and both native hosts', () => {
   const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
@@ -12,6 +17,6 @@ test('every component has a Fabric spec and both native hosts', () => {
     assert.match(readFileSync(spec, 'utf8'), /codegenNativeComponent/);
     assert.equal(pkg.codegenConfig.ios.componentProvider[`NativeUIX${name}`], `RNUX${name}ComponentView`);
     assert.ok(existsSync(`ios/RNUX${name}ComponentView.mm`));
-    assert.ok(existsSync(`android/src/main/java/dev/nativeuix/NativeUIX${name}Manager.kt`));
+    assert.match(androidSources, new RegExp(`class NativeUIX${name}Manager\\b`), name);
   }
 });

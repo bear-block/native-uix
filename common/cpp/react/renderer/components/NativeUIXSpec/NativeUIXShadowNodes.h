@@ -5,6 +5,7 @@
 #include <jsi/jsi.h>
 #include <react/renderer/components/NativeUIXSpec/EventEmitters.h>
 #include <react/renderer/components/NativeUIXSpec/NativeUIXSizeState.h>
+#include <react/renderer/components/NativeUIXSpec/NativeUIXStackScreenState.h>
 #include <react/renderer/components/NativeUIXSpec/Props.h>
 #include <react/renderer/components/view/ConcreteViewShadowNode.h>
 #include <react/renderer/core/ConcreteComponentDescriptor.h>
@@ -15,6 +16,7 @@ namespace facebook::react {
 JSI_EXPORT extern const char NativeUIXButtonComponentName[];
 JSI_EXPORT extern const char NativeUIXSwitchComponentName[];
 JSI_EXPORT extern const char NativeUIXSegmentedControlComponentName[];
+JSI_EXPORT extern const char NativeUIXStackScreenComponentName[];
 
 // Hug: natural width, capped by the parent. Fill: take the available width.
 enum class NativeUIXWidthMode { Hug, Fill };
@@ -94,5 +96,40 @@ using NativeUIXButtonComponentDescriptor = ConcreteComponentDescriptor<NativeUIX
 using NativeUIXSwitchComponentDescriptor = ConcreteComponentDescriptor<NativeUIXSwitchShadowNode>;
 using NativeUIXSegmentedControlComponentDescriptor =
     ConcreteComponentDescriptor<NativeUIXSegmentedControlShadowNode>;
+
+/*
+ * A navigation stack screen. Where the platform places screens below a native
+ * app bar (Android), the stack writes the content area's size into the state
+ * and the screen is laid out at that size; until then, and on iOS, where
+ * screens extend under the translucent bar, it fills the stack. On iOS the
+ * state's top inset pads content that is not in a scroll view below the bar,
+ * as UIKit's safe area does.
+ */
+using NativeUIXStackScreenShadowNode = ConcreteViewShadowNode<
+    NativeUIXStackScreenComponentName,
+    NativeUIXStackScreenProps,
+    NativeUIXStackScreenEventEmitter,
+    NativeUIXStackScreenState>;
+
+class NativeUIXStackScreenComponentDescriptor final
+    : public ConcreteComponentDescriptor<NativeUIXStackScreenShadowNode> {
+ public:
+  using ConcreteComponentDescriptor::ConcreteComponentDescriptor;
+
+  void adopt(ShadowNode &shadowNode) const override
+  {
+    auto &screen = static_cast<NativeUIXStackScreenShadowNode &>(shadowNode);
+    const auto &state = screen.getStateData();
+    auto &layoutable = static_cast<YogaLayoutableShadowNode &>(screen);
+    if (state.size.width > 0 && state.size.height > 0) {
+      layoutable.setSize(state.size);
+      layoutable.setPositionType(YGPositionTypeAbsolute);
+    }
+    if (state.topInset > 0) {
+      layoutable.setPadding(RectangleEdges<Float>{0, state.topInset, 0, 0});
+    }
+    ConcreteComponentDescriptor::adopt(shadowNode);
+  }
+};
 
 } // namespace facebook::react

@@ -63,7 +63,12 @@
         "NativeUIXSwitch": "RNUXSwitchComponentView",
         "NativeUIXSettings": "RNUXSettingsComponentView",
         "NativeUIXSegmentedControl": "RNUXSegmentedControlComponentView",
-        "NativeUIXTransitionView": "RNUXTransitionViewComponentView"
+        "NativeUIXTransitionView": "RNUXTransitionViewComponentView",
+        "NativeUIXTabContent": "RNUXTabContentComponentView",
+        "NativeUIXTabPage": "RNUXTabPageComponentView",
+        "NativeUIXScrollingList": "RNUXScrollingListComponentView",
+        "NativeUIXStack": "RNUXStackComponentView",
+        "NativeUIXStackScreen": "RNUXStackScreenComponentView"
       }
     }
   }

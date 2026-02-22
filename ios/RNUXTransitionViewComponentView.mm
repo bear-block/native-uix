@@ -8,8 +8,9 @@
 
 using namespace facebook::react;
 
-// UIKit has no fade-through or shared-axis content transition; every animated
-// intent uses its cross-dissolve. Push and pop motion belongs to the app's
+// UIKit content changes are not animated, so `platform` is no animation. UIKit
+// has no fade-through or shared-axis content transition; those intents use its
+// cross-dissolve. Push and pop motion belongs to the app's
 // native navigator, not to this view.
 static const NSTimeInterval kCrossDissolveDuration = 0.3;
 
@@ -40,7 +41,7 @@ static const NSTimeInterval kCrossDissolveDuration = 0.3;
 {
   if (self = [super initWithFrame:frame]) {
     _props = std::make_shared<const NativeUIXTransitionViewProps>();
-    _animates = YES;
+    _animates = NO;
     self.clipsToBounds = YES;
   }
   return self;
@@ -49,8 +50,14 @@ static const NSTimeInterval kCrossDissolveDuration = 0.3;
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
   const auto &newProps = *std::static_pointer_cast<NativeUIXTransitionViewProps const>(props);
-  _animates = newProps.motion != NativeUIXTransitionViewMotion::None;
+  _animates = [RNUXTransitionViewComponentView animatesForMotion:newProps.motion];
   [super updateProps:props oldProps:oldProps];
+}
+
+// `platform` means no animation on iOS, as UIKit content changes are.
++ (BOOL)animatesForMotion:(NativeUIXTransitionViewMotion)motion
+{
+  return motion == NativeUIXTransitionViewMotion::FadeThrough || motion == NativeUIXTransitionViewMotion::SharedAxisX;
 }
 
 - (void)handleCommand:(const NSString *)commandName args:(const NSArray *)args
@@ -79,7 +86,7 @@ static const NSTimeInterval kCrossDissolveDuration = 0.3;
     if (mutation.type == ShadowViewMutation::Update && mutation.newChildShadowView.tag == self.tag) {
       auto props = std::static_pointer_cast<NativeUIXTransitionViewProps const>(mutation.newChildShadowView.props);
       if (props) {
-        animates = props->motion != NativeUIXTransitionViewMotion::None;
+        animates = [RNUXTransitionViewComponentView animatesForMotion:props->motion];
       }
     } else if (
         (mutation.type == ShadowViewMutation::Insert || mutation.type == ShadowViewMutation::Remove) &&
@@ -136,6 +143,6 @@ static const NSTimeInterval kCrossDissolveDuration = 0.3;
 {
   [super prepareForRecycle];
   [self removeSnapshot];
-  _animates = YES;
+  _animates = NO;
 }
 @end

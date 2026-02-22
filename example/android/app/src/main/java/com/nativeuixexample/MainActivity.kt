@@ -1,5 +1,8 @@
 package com.nativeuixexample
 
+import android.content.res.Configuration
+import android.os.Bundle
+import androidx.core.view.WindowCompat
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
@@ -19,4 +22,25 @@ class MainActivity : ReactActivity() {
    */
   override fun createReactActivityDelegate(): ReactActivityDelegate =
       DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    applySystemBarAppearance(resources.configuration)
+  }
+
+  // The activity handles uiMode itself, so dark mode toggles arrive here.
+  override fun onConfigurationChanged(newConfig: Configuration) {
+    super.onConfigurationChanged(newConfig)
+    applySystemBarAppearance(newConfig)
+  }
+
+  /** Edge to edge: dark system bar icons on the light theme, light on dark. */
+  private fun applySystemBarAppearance(configuration: Configuration) {
+    val light =
+        configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK != Configuration.UI_MODE_NIGHT_YES
+    WindowCompat.getInsetsController(window, window.decorView).apply {
+      isAppearanceLightStatusBars = light
+      isAppearanceLightNavigationBars = light
+    }
+  }
 }

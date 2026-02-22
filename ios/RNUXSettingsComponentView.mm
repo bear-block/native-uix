@@ -50,8 +50,8 @@ static NSString *const kCellId = @"row";
     _tableView = [[UITableView alloc] initWithFrame:self.bounds style:UITableViewStyleInsetGrouped];
     _tableView.dataSource = self;
     _tableView.delegate = self;
-    // React Native positions this view; do not add safe-area insets again.
-    _tableView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+    // Insets follow the safe area and a navigation bar above, as in UIKit.
+    _tableView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentAutomatic;
     [_tableView registerClass:UITableViewCell.class forCellReuseIdentifier:kCellId];
     _titleLabel = [UILabel new];
     _titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleLargeTitle];

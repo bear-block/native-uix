@@ -4,23 +4,29 @@ This React Native CLI app is the interactive acceptance surface for Native UIX. 
 
 ## What to check
 
-**Top segmented control**: switching tabs uses the platform's own selection motion.
+The app is a native `Stack`. **Home** lists every demo; each row pushes a route. Go back with the back button, an edge swipe (iOS), or system back and predictive back (Android 14+). Routes you come back to keep their state and scroll position.
 
-**Motion**: the second segmented control picks the tab transition (`TransitionView`). On iOS, launch with `-NativeUIXAutoSwitch 1` to switch tabs automatically for screen captures.
+**Navigation**
 
-**Controls tab**
+1. Home has a large title that collapses as the list scrolls.
+2. **Stack**: odd levels use a large title, even levels a compact one. **Count** survives pushing and coming back. **Replace**, **Pop**, **Pop to root** and the **Done** header action do what they say, with native motion.
+3. Start an edge swipe (iOS) or a predictive back gesture (Android) and cancel it: nothing is popped.
 
-1. Tap **Continue**: the counter increases by exactly one per tap.
-2. Tap **Delete**, **Remove**, **Fits** and **Content**: each adds one line to the event log. **Disabled** never does.
-3. Long labels wrap inside the screen width; short buttons hug their text.
-4. Toggle **Wi-Fi**: the switch animates and the label follows.
-5. Toggle **Locked**: the switch animates, then returns to off because the parent rejects the change.
+**Buttons**: **Continue** counts each tap once; every enabled button adds a line to the event log, **Disabled** never does; long labels wrap, short buttons hug their text.
 
-**Settings tab**
+**Switches**: **Wi-Fi** animates and its label follows; **Locked** animates, then returns to off because the parent rejects the change.
 
-1. Toggle **Airplane mode**: the switch animates without the list reloading, and **Network** becomes disabled.
-2. Toggle **Data roaming**: it returns to off (rejected by the parent).
-3. Tap an action row: the status line shows its row ID. Scroll the 100 rows natively.
+**Segmented control**: selection uses the platform's own motion.
+
+**Tab content**: pages stay mounted; each page's count and scroll position survive switching. The second control picks the motion; `Default` is no animation on iOS and Material fade through on Android.
+
+**Settings list**: **Airplane mode** animates without the list reloading and disables **Network**; **Data roaming** returns to off (rejected); action rows push a detail route.
+
+**Scrolling list**: 80 sectioned rows; pressable rows push a detail route, informational rows do not respond.
+
+Toggle dark mode while the app runs: every screen, the header and the system bars follow it.
+
+On iOS, launch arguments help automated captures: `-NativeUIXRoute <name>` starts on a route (for example `tabs`), and `-NativeUIXRoute navigation -NativeUIXScript 1` pushes twice, pops, then pops to the root, 2 s apart.
 
 ## Run
 
@@ -44,3 +50,27 @@ The example depends on the library through `file:..`. `metro.config.js` blocks t
 Release builds bundle JavaScript only when files under `example/` change; Gradle does not track the library's `src/`. After changing library JavaScript, run `./gradlew :app:installRelease --rerun-tasks` (or touch `App.tsx`).
 
 The iOS app uses a `SceneDelegate`, because iOS 27 terminates apps that do not adopt the UIScene lifecycle.
+
+## Scrolling scenario (experimental)
+
+Open **Scrolling** to test the native-owned list and collapsing title.
+
+1. Scroll upward: the expanded title collapses into the top bar.
+2. Return to the start: the large title expands.
+3. Switch to Controls and back: verify that the scroll position is retained.
+4. Check dark mode, larger system text, rotation, and screen-reader navigation.
+
+Android uses Compose Material 3 Expressive (`1.5.0-alpha06`), dynamic colors on API 31+, and a fallback color scheme below API 31. This is an experimental dependency, not a release compatibility guarantee. iOS uses a child UINavigationController and UITableViewController. The app owns routes and outer layout; the component owns its header and list scroll. Rows can be informational or actionable; see the variant checks below.
+
+For simulator automation, `-NativeUIXInitialTab scrolling` opens this scenario directly.
+
+### Header and content variants
+
+- Choose **Large collapsing** or **Compact fixed**, then scroll to compare native behavior.
+- Toggle **Show/Hide subtitle**. On iOS the subtitle is a navigation prompt above the title.
+- Tap **Back** or **More**: the result must show `header: back` or `header: more`; this scenario does not navigate.
+- Tap Item 3: the result must show `item: row-2`. Item 1 is informational and Item 2 is disabled. Neither emits an action.
+- Toggle **Disable actions**: header and actionable list rows must stop emitting events.
+- Scroll across sections: the section title sticks below the app bar. Switch away and return to check retained position.
+
+Search, hero imagery, icon actions, arbitrary React content, and hide-on-scroll are deferred.

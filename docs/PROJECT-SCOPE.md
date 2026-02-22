@@ -16,7 +16,9 @@ Native UIX targets React Native applications that need platform-native controls 
 
 Phase 0 researches and tests Button, Switch and a small Settings screen. Production core components follow only after feasibility gates pass. Phone layouts are the first executable path; tablet, window resizing and accessibility scaling are validation requirements, not claimed features.
 
-Web, desktop, Legacy Architecture, a new router, custom rendering engines, arbitrary React children inside native screen trees, and JavaScript imitation of Liquid Glass are outside the initial scope.
+Scope update, 2026-10-05: Native UIX-owned navigation is accepted as a product responsibility. The next navigation experiment is a native Stack with integrated headers, Back and interactive/system gestures; app-level tabs, modals, deep links and restoration follow its acceptance. React Navigation is not the planned runtime dependency. API/backend choices remain proposed; see [navigation direction](NAVIGATION.md).
+
+Web, desktop, Legacy Architecture, custom rendering engines, arbitrary React children inside descriptor screen trees, and JavaScript imitation of Liquid Glass remain outside the initial scope. Navigation screen mounting requires its own Fabric ownership spike; it does not relax descriptor-content restrictions automatically.
 
 ## Meaning of zero-config
 

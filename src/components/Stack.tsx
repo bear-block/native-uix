@@ -1,0 +1,190 @@
+import * as React from "react";
+import {
+  ScrollView,
+  StyleSheet,
+  type ScrollViewProps,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
+
+import NativeUIXStack from "../specs/NativeUIXStackNativeComponent";
+import NativeUIXStackScreen from "../specs/NativeUIXStackScreenNativeComponent";
+
+export type StackRoute = {
+  /** Unique per route instance; the same screen can be on the stack twice. */
+  key: string;
+  name: string;
+  params?: object;
+};
+
+export type StackHeaderAction = {
+  label: string;
+  disabled?: boolean;
+  onPress: () => void;
+};
+
+export type StackHeader = {
+  title: string;
+  /** Large collapses with the screen's scroll view; compact stays fixed. */
+  size?: "large" | "compact";
+  /** iOS 26+ subtitle (prompt on older iOS); Android app bar subtitle. */
+  subtitle?: string;
+  trailingAction?: StackHeaderAction;
+};
+
+export type StackNavigation = {
+  push: (name: string, params?: object) => void;
+  pop: () => void;
+  popToRoot: () => void;
+  replace: (name: string, params?: object) => void;
+};
+
+export type StackScreenProps = {
+  route: StackRoute;
+  navigation: StackNavigation;
+};
+
+export type StackScreenDefinition = {
+  component: React.ComponentType<StackScreenProps>;
+  header:
+    | StackHeader
+    | ((route: StackRoute, navigation: StackNavigation) => StackHeader);
+};
+
+export type StackProps = {
+  screens: Record<string, StackScreenDefinition>;
+  initialRoute: { name: string; params?: object };
+  style?: StyleProp<ViewStyle>;
+};
+
+const NavigationContext = React.createContext<StackNavigation | null>(null);
+const RouteContext = React.createContext<StackRoute | null>(null);
+
+/** Navigation of the Stack this component renders in. */
+export function useStackNavigation(): StackNavigation {
+  const navigation = React.useContext(NavigationContext);
+  if (navigation == null) {
+    throw new Error("useStackNavigation must be used inside a Stack screen.");
+  }
+  return navigation;
+}
+
+/** The route this component renders in. */
+export function useStackRoute(): StackRoute {
+  const route = React.useContext(RouteContext);
+  if (route == null) {
+    throw new Error("useStackRoute must be used inside a Stack screen.");
+  }
+  return route;
+}
+
+/**
+ * Experimental native stack: UINavigationController on iOS, a Material app
+ * bar with shared-axis transitions and predictive back on Android. React
+ * declares the routes; the platform runs every transition and gesture. A pop
+ * the user commits natively is reported once and removed here, never popped
+ * a second time. Routes below the top stay mounted, keeping their state.
+ */
+export function Stack({
+  screens,
+  initialRoute,
+  style,
+}: StackProps): React.JSX.Element {
+  const nextKey = React.useRef(0);
+  const makeRoute = React.useCallback(
+    (name: string, params?: object): StackRoute => {
+      if (screens[name] == null) {
+        throw new Error(`Stack: unknown screen "${name}"`);
+      }
+      nextKey.current += 1;
+      return { key: `${name}-${nextKey.current}`, name, params };
+    },
+    [screens],
+  );
+  const [routes, setRoutes] = React.useState<StackRoute[]>(() => [
+    makeRoute(initialRoute.name, initialRoute.params),
+  ]);
+
+  const navigation = React.useMemo<StackNavigation>(
+    () => ({
+      push: (name, params) => {
+        const route = makeRoute(name, params);
+        setRoutes((current) => [...current, route]);
+      },
+      pop: () =>
+        setRoutes((current) =>
+          current.length > 1 ? current.slice(0, -1) : current,
+        ),
+      popToRoot: () => setRoutes((current) => current.slice(0, 1)),
+      replace: (name, params) => {
+        const route = makeRoute(name, params);
+        setRoutes((current) => [...current.slice(0, -1), route]);
+      },
+    }),
+    [makeRoute],
+  );
+
+  return (
+    <NavigationContext.Provider value={navigation}>
+      <NativeUIXStack
+        style={[styles.stack, style]}
+        onNativePop={(event) => {
+          const { topKey } = event.nativeEvent;
+          setRoutes((current) => {
+            const index = current.findIndex((route) => route.key === topKey);
+            return index >= 0 ? current.slice(0, index + 1) : current;
+          });
+        }}
+      >
+        {routes.map((route) => {
+          const definition = screens[route.name]!;
+          const header =
+            typeof definition.header === "function"
+              ? definition.header(route, navigation)
+              : definition.header;
+          const Component = definition.component;
+          return (
+            <NativeUIXStackScreen
+              key={route.key}
+              routeKey={route.key}
+              screenTitle={header.title}
+              headerSize={header.size ?? "large"}
+              headerSubtitle={header.subtitle ?? ""}
+              trailingId={header.trailingAction ? "trailing" : ""}
+              trailingLabel={header.trailingAction?.label ?? ""}
+              trailingDisabled={header.trailingAction?.disabled ?? false}
+              onHeaderAction={() => {
+                if (!header.trailingAction?.disabled) {
+                  header.trailingAction?.onPress();
+                }
+              }}
+              collapsable={false}
+              style={StyleSheet.absoluteFill}
+            >
+              <RouteContext.Provider value={route}>
+                <Component route={route} navigation={navigation} />
+              </RouteContext.Provider>
+            </NativeUIXStackScreen>
+          );
+        })}
+      </NativeUIXStack>
+    </NavigationContext.Provider>
+  );
+}
+
+/**
+ * ScrollView for Stack screens: on iOS its insets follow the navigation bar
+ * and the large title collapses with it; on Android it drives the app bar
+ * through nested scrolling.
+ */
+export function StackScrollView(props: ScrollViewProps): React.JSX.Element {
+  return (
+    <ScrollView
+      contentInsetAdjustmentBehavior="automatic"
+      nestedScrollEnabled
+      {...props}
+    />
+  );
+}
+
+const styles = StyleSheet.create({ stack: { flex: 1 } });

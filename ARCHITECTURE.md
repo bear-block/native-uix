@@ -18,6 +18,6 @@ In component mode, React Native owns the outer frame and sibling layout. Native 
 
 In screen mode, React Native supplies the outer frame and semantic data. Native code owns content layout and scrolling. Arbitrary React children are excluded from the first screen experiment; callbacks remain in JavaScript and native events refer to stable action IDs.
 
-The application owns routes, persistence and business state. Native UIX does not introduce a second navigation stack. Capability and adaptation logic remains local until multiple components justify a shared policy module.
+Navigation scope update, 2026-10-05: Native UIX will own the navigation host, committed stack, header, native back gestures and screen lifecycle. The application registers screens and requests routes through its TypeScript API, and owns business state and persistence policy. React Navigation is not the planned routing backend. An experimental Stack exists: React declares the routes, the native host (`UINavigationController`; a Material app bar over a view stack on Android) runs transitions and back, and reports committed native pops once; see [native navigation direction](docs/NAVIGATION.md). The navigator owns the only header; lists such as ScrollingList have none of their own. Capability and adaptation logic remains local until multiple components justify a shared policy module.
 
 Implementation acceptance requires executed builds and lifecycle, sizing, state and accessibility evidence on both platforms. The public API remains experimental until that evidence exists.
