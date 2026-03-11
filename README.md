@@ -38,4 +38,4 @@ MIT. See [LICENSE](LICENSE).
 
 Engineering research and planning are kept separately. Everything needed to install, build, test or use the eventual package will live in this repository.
 
-The experimental [Stack](docs/API-PROPOSAL.md#experimental-stack) navigator runs on `UINavigationController` on iOS and a Material app bar with shared-axis transitions and predictive back on Android. The example app is built on it: every demo is a route. Dependencies are stable releases only; Native UIX uses no Compose, SwiftUI or alpha artifacts.
+The experimental [Stack](docs/API-PROPOSAL.md#experimental-stack) navigator runs on `UINavigationController` on iOS and a Material app bar with shared-axis transitions and predictive back on Android. The example app is built on it: every demo is a route. On Android the header uses Jetpack Compose Material 3 Expressive, which is only available as `material3:1.5.0-alpha06`; it moves to a stable release when one ships.

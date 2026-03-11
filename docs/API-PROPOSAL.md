@@ -80,11 +80,11 @@ function Home({navigation}: StackScreenProps) {
 
 | | iOS | Android |
 |---|---|---|
-| Container | `UINavigationController` | Material app bar (`AppBarLayout`, `CollapsingToolbarLayout`, `MaterialToolbar`) over a view stack |
+| Container | `UINavigationController` | Compose Material 3 Expressive app bar over a view stack |
 | Push / pop | UIKit push and pop | Material shared axis X |
 | Back | Back button, interactive edge swipe | Up button, system back, predictive back on Android 14+ |
-| `header.size: 'large'` (default) | Large title that collapses with the screen's scroll view | Large app bar that collapses with nested scrolling |
-| `header.size: 'compact'` | Inline title | Small app bar that lifts on scroll |
+| `header.size: 'large'` (default) | Large title that collapses with the screen's scroll view | `LargeFlexibleTopAppBar` that collapses with nested scrolling |
+| `header.size: 'compact'` | Inline title | Small `TopAppBar` that tints when content scrolls under it |
 | `header.subtitle` | Navigation subtitle (iOS 26+), prompt before | App bar subtitle |
 | `header.trailingAction` | Bar button item | App bar action |
 

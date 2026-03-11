@@ -6,6 +6,7 @@ buildscript {
   }
   dependencies {
     classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+    classpath("org.jetbrains.kotlin:compose-compiler-gradle-plugin:$kotlin_version")
   }
 }
 
@@ -16,6 +17,7 @@ if (rootProject.findProperty('newArchEnabled')?.toString() == 'false') {
 
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
 apply plugin: 'com.facebook.react'
 
 react {
@@ -25,6 +27,7 @@ react {
 
 android {
   namespace 'dev.nativeuix'
+  buildFeatures { compose true }
   compileSdkVersion 37
 
   defaultConfig {
@@ -39,6 +42,11 @@ repositories {
 
 dependencies {
   implementation('com.facebook.react:react-android')
+  // Material 3 Expressive components (flexible app bars) exist only in Compose
+  // and only in this alpha; tracked until a stable release (ADR-0007).
+  implementation('androidx.compose.ui:ui:1.9.0')
+  implementation('androidx.compose.foundation:foundation:1.9.0')
+  implementation('androidx.compose.material3:material3:1.5.0-alpha06')
   implementation('com.google.android.material:material:1.13.0')
   implementation('androidx.recyclerview:recyclerview:1.4.0')
   implementation('androidx.transition:transition:1.5.0')

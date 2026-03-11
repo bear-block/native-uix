@@ -1,3 +1,6 @@
+// The flexible app bars are experimental in Material 3 1.5 alpha (ADR-0007).
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package dev.nativeuix
 
 import android.animation.Animator
@@ -5,8 +8,6 @@ import android.animation.AnimatorListenerAdapter
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.util.TypedValue
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -15,9 +16,13 @@ import android.widget.ImageView
 import androidx.activity.BackEventCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
-import androidx.appcompat.content.res.AppCompatResources
-import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.transition.Transition
+import kotlinx.coroutines.launch
 import androidx.transition.TransitionManager
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.WritableNativeMap
@@ -31,14 +36,9 @@ import com.facebook.react.viewmanagers.NativeUIXStackManagerInterface
 import com.facebook.react.viewmanagers.NativeUIXStackScreenManagerDelegate
 import com.facebook.react.viewmanagers.NativeUIXStackScreenManagerInterface
 import com.facebook.react.views.view.ReactViewGroup
-import com.google.android.material.appbar.AppBarLayout
-import com.google.android.material.appbar.CollapsingToolbarLayout
-import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.transition.MaterialSharedAxis
 import kotlin.math.abs
-
-private const val TRAILING_ACTION = 1
 
 /**
  * One route of a NativeUIXStack. Fabric sets every view VISIBLE on each layout
@@ -61,8 +61,6 @@ class NativeUIXStackScreenView(context: ThemedReactContext) : ReactViewGroup(con
   /** Added by React and not yet shown; decides the transition direction. */
   internal var added = false
 
-  /** App bar offset while this route was on top, restored on return. */
-  internal var appBarOffset = 0
 
   var stateWrapper: StateWrapper? = null
 
@@ -105,9 +103,15 @@ class NativeUIXStackScreenView(context: ThemedReactContext) : ReactViewGroup(con
 
 /**
  * The area below the app bar. Fabric positions routes inside it; it measures
- * and lays out only its own snapshots of removed routes.
+ * and lays out only its own snapshots of removed routes. Nested scrolling
+ * from a route's scroll view (React Native ScrollView, RecyclerView) is passed
+ * to the Compose app bar, which collapses and lifts with it.
  */
-internal class NativeUIXStackContent(context: Context, private val onSize: (Int, Int) -> Unit) : ViewGroup(context) {
+internal class NativeUIXStackContent(
+  context: Context,
+  private val onSize: (Int, Int) -> Unit,
+  private val header: StackHeaderBridge,
+) : ViewGroup(context) {
   override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
     val width = MeasureSpec.getSize(widthMeasureSpec)
     val height = MeasureSpec.getSize(heightMeasureSpec)
@@ -131,6 +135,35 @@ internal class NativeUIXStackContent(context: Context, private val onSize: (Int,
     super.onSizeChanged(w, h, oldw, oldh)
     onSize(w, h)
   }
+
+  override fun onStartNestedScroll(child: View, target: View, axes: Int): Boolean =
+    axes and View.SCROLL_AXIS_VERTICAL != 0
+
+  // Views scroll down with positive dy; Compose with negative y.
+  override fun onNestedPreScroll(target: View, dx: Int, dy: Int, consumed: IntArray) {
+    val connection = header.behavior?.nestedScrollConnection ?: return
+    val used = connection.onPreScroll(
+      androidx.compose.ui.geometry.Offset(0f, -dy.toFloat()),
+      androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput,
+    )
+    consumed[1] = -used.y.toInt()
+  }
+
+  override fun onNestedScroll(target: View, dxConsumed: Int, dyConsumed: Int, dxUnconsumed: Int, dyUnconsumed: Int) {
+    header.behavior?.nestedScrollConnection?.onPostScroll(
+      androidx.compose.ui.geometry.Offset(0f, -dyConsumed.toFloat()),
+      androidx.compose.ui.geometry.Offset(0f, -dyUnconsumed.toFloat()),
+      androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput,
+    )
+  }
+
+  // Settles a large bar fully expanded or collapsed when scrolling stops.
+  override fun onStopNestedScroll(child: View) {
+    val connection = header.behavior?.nestedScrollConnection ?: return
+    header.scope?.launch {
+      connection.onPostFling(androidx.compose.ui.unit.Velocity.Zero, androidx.compose.ui.unit.Velocity.Zero)
+    }
+  }
 }
 
 /**
@@ -148,12 +181,22 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
   private var updatePending = false
   private var gestureActive = false
 
-  private val coordinator = CoordinatorLayout(themed)
-  internal val content = NativeUIXStackContent(themed) { w, h -> screens.forEach { it.reportSize(w, h) } }
-  private lateinit var appBar: AppBarLayout
-  private lateinit var collapsing: CollapsingToolbarLayout
-  private lateinit var toolbar: MaterialToolbar
-  private var largeScrim: android.graphics.drawable.Drawable? = null
+  private val headerBridge = StackHeaderBridge()
+  private val headerModel = mutableStateOf<StackHeaderModel?>(null)
+  internal val content = NativeUIXStackContent(themed, { w, h -> screens.forEach { it.reportSize(w, h) } }, headerBridge)
+  private val header = ComposeView(context).apply {
+    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+    setContent {
+      headerModel.value?.let { model ->
+        StackHeader(
+          model = model,
+          bridge = headerBridge,
+          onBack = { popNatively(animated = true) },
+          onTrailing = { shown?.emitHeaderAction() },
+        )
+      }
+    }
+  }
 
   private val applyRoutes = Runnable { updatePending = false; applyRoutesNow() }
 
@@ -205,53 +248,36 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
   }
 
   init {
-    coordinator.fitsSystemWindows = true
     content.setBackgroundColor(MaterialColors.getColor(themed, com.google.android.material.R.attr.colorSurface, 0))
-    coordinator.addView(
-      content,
-      CoordinatorLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT).apply { behavior = AppBarLayout.ScrollingViewBehavior() },
-    )
-    buildAppBar()
-    addView(coordinator, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+    addView(content, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+    addView(header, LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+    // Routes start below the app bar and follow it while it collapses; their
+    // height stays the area below the collapsed bar, so collapsing moves them
+    // without a React layout.
+    header.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
+      content.translationY = (bottom - top).toFloat()
+    }
   }
 
-  private fun buildAppBar() {
-    if (this::appBar.isInitialized) coordinator.removeView(appBar)
-    appBar = AppBarLayout(themed)
-    collapsing = CollapsingToolbarLayout(themed, null, com.google.android.material.R.attr.collapsingToolbarLayoutLargeStyle)
-    collapsing.setExpandedSubtitleTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_TitleMedium)
-    collapsing.setCollapsedSubtitleTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium)
-    val subtitleColor = MaterialColors.getColor(themed, com.google.android.material.R.attr.colorOnSurfaceVariant, 0)
-    collapsing.setExpandedSubtitleColor(subtitleColor)
-    collapsing.setCollapsedSubtitleTextColor(subtitleColor)
-    largeScrim = collapsing.contentScrim
-    toolbar = MaterialToolbar(themed)
-    toolbar.setNavigationOnClickListener { popNatively(animated = true) }
-    toolbar.setOnMenuItemClickListener { item: MenuItem ->
-      if (item.itemId == TRAILING_ACTION) shown?.emitHeaderAction()
-      true
+  override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+    super.onSizeChanged(w, h, oldw, oldh)
+    sizeContent()
+  }
+
+  private fun sizeContent() {
+    val statusBar = ViewCompat.getRootWindowInsets(this)
+      ?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
+    val collapsed = (dp(64) + statusBar).toInt()
+    val height = (this.height - collapsed).coerceAtLeast(0)
+    if (content.layoutParams.height != height) {
+      content.layoutParams = content.layoutParams.apply { this.height = height }
+      requestLayout()
     }
-    collapsing.addView(
-      toolbar,
-      CollapsingToolbarLayout.LayoutParams(MATCH_PARENT, attrSize(androidx.appcompat.R.attr.actionBarSize)).apply {
-        collapseMode = CollapsingToolbarLayout.LayoutParams.COLLAPSE_MODE_PIN
-      },
-    )
-    appBar.addView(collapsing, AppBarLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-    appBar.addOnOffsetChangedListener { _, offset -> shown?.appBarOffset = offset }
-    // Edge to edge: the app bar extends under the status bar and keeps its
-    // content below it, as Material's own layouts do.
-    appBar.fitsSystemWindows = true
-    collapsing.fitsSystemWindows = true
-    coordinator.addView(appBar, 0, CoordinatorLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
-    coordinator.requestApplyInsets()
-    shown?.let { applyHeader(it) }
   }
 
   override fun onNightModeChanged() {
     themed = materialContext(context)
     content.setBackgroundColor(MaterialColors.getColor(themed, com.google.android.material.R.attr.colorSurface, 0))
-    buildAppBar()
   }
 
   override fun onAttachedToWindow() {
@@ -324,7 +350,7 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     }
     if (target !== previous) {
       shown = target
-      target?.let { applyHeader(it); restoreAppBar(it) }
+      target?.let { applyHeader(it) }
     }
     updateBackCallback()
   }
@@ -351,7 +377,6 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     below.inactive = false
     shown = below
     applyHeader(below)
-    restoreAppBar(below)
     updateBackCallback()
     dispatchNativeEvent("topNativePop", Arguments.createMap().apply { putString("topKey", below.routeKey) })
   }
@@ -366,72 +391,19 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
   }
 
   private fun applyHeader(screen: NativeUIXStackScreenView) {
-    val large = screen.headerSize == "large"
-    collapsing.isTitleEnabled = large
-    // A compact bar is as tall as its toolbar, which the collapsing layout
-    // reads as collapsed; its scrim would tint a bar that should be flat.
-    collapsing.contentScrim = if (large) largeScrim else null
-    collapsing.title = if (large) screen.title else null
-    toolbar.title = if (large) null else screen.title
-    val subtitle = screen.subtitle.ifEmpty { null }
-    collapsing.subtitle = if (large) subtitle else null
-    toolbar.subtitle = if (large) null else subtitle
-    collapsing.layoutParams = (collapsing.layoutParams as AppBarLayout.LayoutParams).apply {
-      height = if (large) attrSize(com.google.android.material.R.attr.collapsingToolbarLayoutLargeSize) else WRAP_CONTENT
-      scrollFlags = if (large) {
-        AppBarLayout.LayoutParams.SCROLL_FLAG_SCROLL or
-          AppBarLayout.LayoutParams.SCROLL_FLAG_EXIT_UNTIL_COLLAPSED or
-          AppBarLayout.LayoutParams.SCROLL_FLAG_SNAP
-      } else {
-        0
-      }
-    }
-    if (below(screen) != null) {
-      toolbar.navigationIcon = AppCompatResources.getDrawable(themed, androidx.appcompat.R.drawable.abc_ic_ab_back_material)
-      toolbar.setNavigationContentDescription(androidx.appcompat.R.string.abc_action_bar_up_description)
-    } else {
-      toolbar.navigationIcon = null
-    }
-    toolbar.menu.clear()
-    if (screen.trailingLabel.isNotEmpty()) {
-      toolbar.menu.add(0, TRAILING_ACTION, 0, screen.trailingLabel).apply {
-        setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
-        isEnabled = !screen.trailingDisabled
-      }
-    }
-    requestLayout()
-  }
-
-  private fun restoreAppBar(screen: NativeUIXStackScreenView) {
-    val offset = screen.appBarOffset
-    // The app bar lifts from the route's own scroll view, so a route that is
-    // at its top shows a flat bar and a scrolled one a lifted bar.
-    val scrolling = firstScrollingView(screen)
-    appBar.setLiftOnScrollTargetView(scrolling)
-    appBar.isLifted = scrolling?.canScrollVertically(-1) == true
-    appBar.post {
-      val behavior = (appBar.layoutParams as CoordinatorLayout.LayoutParams).behavior as? AppBarLayout.Behavior
-      if (behavior != null && behavior.topAndBottomOffset != offset) {
-        behavior.topAndBottomOffset = offset
-        appBar.requestLayout()
-      }
-    }
-  }
-
-  private fun firstScrollingView(root: View): View? {
-    val queue = ArrayDeque<View>().apply { add(root) }
-    while (queue.isNotEmpty()) {
-      val view = queue.removeFirst()
-      if (view is android.widget.ScrollView || view is androidx.recyclerview.widget.RecyclerView) return view
-      if (view is ViewGroup) for (i in 0 until view.childCount) queue.add(view.getChildAt(i))
-    }
-    return null
-  }
-
-  private fun attrSize(attr: Int): Int {
-    val value = TypedValue()
-    themed.theme.resolveAttribute(attr, value, true)
-    return TypedValue.complexToDimensionPixelSize(value.data, resources.displayMetrics)
+    sizeContent()
+    headerModel.value = StackHeaderModel(
+      routeKey = screen.routeKey,
+      title = screen.title,
+      large = screen.headerSize == "large",
+      subtitle = screen.subtitle,
+      trailingLabel = screen.trailingLabel,
+      trailingDisabled = screen.trailingDisabled,
+      canGoBack = below(screen) != null,
+    )
+    // Compose resizes the bar while this host measures, where a layout
+    // request is dropped; measure again once the new bar is composed.
+    header.post { requestLayout() }
   }
 
   private fun dp(value: Int): Float = value * resources.displayMetrics.density

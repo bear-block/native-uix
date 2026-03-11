@@ -24,13 +24,13 @@ Native UIX must reconcile native-initiated navigation with its TypeScript observ
 
 The initial experiment must implement a list → detail → back flow inside the example. Candidate operations are push, pop and replace with stable route-instance IDs and validated serializable params. The experimental `Stack` export implements this; see the [API proposal](API-PROPOSAL.md#experimental-stack).
 
-On iOS, each stack is one `UINavigationController` with native back items, interactive swipe-back and large titles. On Android, each stack is a Native UIX view container with one `MaterialToolbar`, `MaterialSharedAxis` transitions and one system-back owner that drives predictive back on Android 14+. Fragments and Compose are not used. Predictive back and restoration are claimed only after they are tested.
+On iOS, each stack is one `UINavigationController` with native back items, interactive swipe-back and large titles. On Android, each stack is a Native UIX view container with one Compose Material 3 Expressive app bar, `MaterialSharedAxis` transitions and one system-back owner that drives predictive back on Android 14+. Fragments are not used. Predictive back and restoration are claimed only after they are tested.
 
 The navigator must distinguish navigation Back/Up intent from ordinary leading/trailing actions. A text label such as Back never creates navigation semantics. Native accessibility labels, RTL direction, root behavior and action availability must follow the chosen platform mechanism.
 
 ## Header and scrolling integration
 
-The navigator owns the only header. A screen gives its title, size, subtitle and trailing action; its scroll view (`StackScrollView`, `ScrollingList`, `SettingsScreen`) is found natively. On iOS it becomes the controller's content scroll view, so the large title collapses with it and insets follow the bar. On Android it drives the app bar through nested scrolling and decides whether the bar is lifted. ScrollingScreen, which embedded its own navigation controller (iOS) and a Compose alpha app bar (Android), was replaced by the header-less ScrollingList.
+The navigator owns the only header. A screen gives its title, size, subtitle and trailing action; its scroll view (`StackScrollView`, `ScrollingList`, `SettingsScreen`) is found natively. On iOS it becomes the controller's content scroll view, so the large title collapses with it and insets follow the bar. On Android it drives the app bar through nested scrolling and decides whether the bar is lifted. ScrollingScreen, which embedded its own navigation controller (iOS), was replaced by the header-less ScrollingList.
 
 Routes below the top stay mounted, so scroll position and React state survive returning to them. TabContent remains an in-screen page container, not an app-level navigator.
 
