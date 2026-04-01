@@ -6,6 +6,7 @@ export type NativeUIXTabChangeEvent = Readonly<{id: string}>;
 export interface NativeUIXTabsProps extends ViewProps {
   /** ID of the selected tab. */
   selectedId: string;
+  minimizeBehavior?: CodegenTypes.WithDefault<'automatic' | 'never' | 'onScrollDown' | 'onScrollUp', 'automatic'>;
   onTabChange?: CodegenTypes.DirectEventHandler<NativeUIXTabChangeEvent>;
 }
 

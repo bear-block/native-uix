@@ -142,14 +142,26 @@ internal class NativeUIXStackContent(
       androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput,
     )
     header.follow?.invoke()
+    dispatchNestedScroll(dxConsumed, dyConsumed, dxUnconsumed, dyUnconsumed, null)
   }
 
   // Settles a large bar fully expanded or collapsed when scrolling stops.
   override fun onStopNestedScroll(child: View) {
+    stopNestedScroll()
     val connection = header.behavior?.nestedScrollConnection ?: return
     header.scope?.launch {
       connection.onPostFling(androidx.compose.ui.unit.Velocity.Zero, androidx.compose.ui.unit.Velocity.Zero)
     }
+  }
+
+  // Scrolling continues upward to an enclosing container (Tabs hides its bar).
+  init {
+    isNestedScrollingEnabled = true
+  }
+
+  override fun onNestedScrollAccepted(child: View, target: View, axes: Int) {
+    super.onNestedScrollAccepted(child, target, axes)
+    startNestedScroll(axes)
   }
 }
 

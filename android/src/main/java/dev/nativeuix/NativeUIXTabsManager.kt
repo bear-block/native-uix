@@ -82,7 +82,18 @@ class NativeUIXTabView(context: ThemedReactContext) : ReactViewGroup(context) {
 }
 
 /** The area above the navigation bar. Fabric positions tabs inside it. */
-internal class NativeUIXTabsContent(context: Context, private val onSize: (Int, Int) -> Unit) : ViewGroup(context) {
+internal class NativeUIXTabsContent(
+  context: Context,
+  private val onSize: (Int, Int) -> Unit,
+  private val onScroll: (Int) -> Unit,
+) : ViewGroup(context) {
+  override fun onStartNestedScroll(child: View, target: View, axes: Int): Boolean =
+    axes and View.SCROLL_AXIS_VERTICAL != 0
+
+  override fun onNestedScroll(target: View, dxConsumed: Int, dyConsumed: Int, dxUnconsumed: Int, dyUnconsumed: Int) {
+    if (dyConsumed != 0) onScroll(dyConsumed)
+  }
+
   override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
     setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
   }
@@ -106,7 +117,34 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
   private var selectedId = ""
   private val items = mutableStateOf<List<TabItemModel>>(emptyList())
   private val selection = mutableStateOf("")
-  internal val content = NativeUIXTabsContent(context) { w, h -> tabs.forEach { it.reportSize(w, h) } }
+  internal val content = NativeUIXTabsContent(
+    context,
+    { w, h -> tabs.forEach { it.reportSize(w, h) } },
+    { dy -> scrolled(dy) },
+  )
+
+  /** `onScrollDown`, `onScrollUp`, or anything else to keep the bar. */
+  var minimizeBehavior = "automatic"
+    set(value) {
+      field = value
+      scrollHidden = false
+      updateBar()
+    }
+  private var scrollHidden = false
+
+  // Material's hide-on-scroll: the bar slides away with scrolling in one
+  // direction and comes back with the other.
+  private fun scrolled(dy: Int) {
+    val hide = when (minimizeBehavior) {
+      "onScrollDown" -> dy > 0
+      "onScrollUp" -> dy < 0
+      else -> return
+    }
+    if (hide != scrollHidden) {
+      scrollHidden = hide
+      updateBar()
+    }
+  }
 
   private val bar = ComposeView(context).apply {
     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
@@ -208,7 +246,7 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
   /** Follows the route on top of the selected tab's Stack. */
   internal fun updateBar() {
     val selected = tabs.firstOrNull { it.tabId == selectedId } ?: return
-    setBarHidden(firstStack(selected)?.coversTabBar == true)
+    setBarHidden(scrollHidden || firstStack(selected)?.coversTabBar == true)
   }
 
   /** A route that covers the tab bar slides the bar down and takes its space. */
@@ -225,6 +263,7 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
   }
 
   private fun show(id: String) {
+    scrollHidden = false
     if (isAttachedToWindow && isLaidOut && selectedId.isNotEmpty()) {
       val transition: Transition = MaterialFadeThrough()
       TransitionManager.beginDelayedTransition(content, transition)
@@ -322,6 +361,10 @@ class NativeUIXTabsManager :
   override fun createViewInstance(reactContext: ThemedReactContext) = NativeUIXTabsView(reactContext)
 
   override fun setSelectedId(view: NativeUIXTabsView, value: String?) = view.select(value.orEmpty())
+
+  override fun setMinimizeBehavior(view: NativeUIXTabsView, value: String?) {
+    view.minimizeBehavior = value ?: "automatic"
+  }
 
   // React's children are the tabs; they live in the content area.
   override fun addView(parent: NativeUIXTabsView, child: View, index: Int) =

@@ -115,8 +115,9 @@ Use `StackScrollView` (or `ScrollingList`, `SettingsScreen`) as a screen's scrol
 | Switching | Instant, as UIKit | Material fade through |
 | Back | — | System back on another tab returns to the first tab |
 | Re-selecting the selected tab | Its Stack pops to the root (UIKit) | Its Stack pops to the root |
+| `minimizeBehavior` (`automatic`, `never`, `onScrollDown`, `onScrollUp`) | `tabBarMinimizeBehavior` (iOS 26+): the bar minimizes to the selected tab | The navigation bar slides away and back (hide on scroll); `automatic` keeps it |
 
-A tab's content mounts the first time it is selected (`lazy`, default true) and then stays mounted, so each tab's Stack keeps its routes. Pass `selectedTab` to control the selection, or `initialTab` to let the bar keep it; `onTabChange` reports a tab the user selected after the bar has switched. When a tab's first child is a Stack, iOS uses the Stack's `UINavigationController` as the tab's view controller, as UIKit expects. Not implemented yet: minimize on scroll, search tab, bottom accessory, sidebar and navigation rail (see the roadmap in the internal gap analysis).
+A tab's content mounts the first time it is selected (`lazy`, default true) and then stays mounted, so each tab's Stack keeps its routes. Pass `selectedTab` to control the selection, or `initialTab` to let the bar keep it; `onTabChange` reports a tab the user selected after the bar has switched. When a tab's first child is a Stack, iOS uses the Stack's `UINavigationController` as the tab's view controller, as UIKit expects. Not implemented yet: search tab, bottom accessory, sidebar and navigation rail (see the roadmap in the internal gap analysis).
 
 ## Experimental ScrollingList
 

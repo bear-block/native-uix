@@ -35,6 +35,13 @@ export type TabsProps = {
    * Defaults to true, as native tab bar controllers load tabs on demand.
    */
   lazy?: boolean;
+  /**
+   * How the bar gives way to content while scrolling. iOS 26+: the tab bar
+   * minimizes to the selected tab (`automatic` is the system default).
+   * Android: the navigation bar slides away (`automatic` keeps it, as
+   * Material does by default).
+   */
+  minimizeBehavior?: 'automatic' | 'never' | 'onScrollDown' | 'onScrollUp';
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
 };
@@ -49,6 +56,7 @@ export function Tabs({
   initialTab,
   onTabChange,
   lazy = true,
+  minimizeBehavior = 'automatic',
   style,
   children,
 }: TabsProps): React.JSX.Element {
@@ -71,6 +79,7 @@ export function Tabs({
   return (
     <NativeUIXTabs
       selectedId={selected}
+      minimizeBehavior={minimizeBehavior}
       style={[styles.tabs, style]}
       onTabChange={event => {
         const {id} = event.nativeEvent;

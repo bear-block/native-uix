@@ -179,9 +179,11 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
 
 - (void)updateContentScrollView
 {
+  // Top: the navigation bar's large title and edge effect. Bottom: the tab
+  // bar's edge effect and minimize-on-scroll.
   UIScrollView *scrollView = RNUXFirstScrollView(self);
   if ([_controller contentScrollViewForEdge:NSDirectionalRectEdgeTop] != scrollView) {
-    [_controller setContentScrollView:scrollView forEdge:NSDirectionalRectEdgeTop];
+    [_controller setContentScrollView:scrollView forEdge:NSDirectionalRectEdgeTop | NSDirectionalRectEdgeBottom];
   }
 }
 

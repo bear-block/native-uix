@@ -148,7 +148,7 @@ const screens: Record<string, StackScreenDefinition> = {
 // System bars follow the platform theme (light and dark), as in native apps.
 export default function App(): React.JSX.Element {
   return (
-    <Tabs initialTab={launchTab()}>
+    <Tabs initialTab={launchTab()} minimizeBehavior="onScrollDown">
       <Tab
         id="components"
         title="Components"

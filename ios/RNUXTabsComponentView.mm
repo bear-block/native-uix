@@ -66,6 +66,21 @@ using namespace facebook::react;
 {
   const auto &next = *std::static_pointer_cast<NativeUIXTabsProps const>(props);
   _selectedId = [NSString stringWithUTF8String:next.selectedId.c_str()];
+  if (@available(iOS 26.0, *)) {
+    switch (next.minimizeBehavior) {
+      case NativeUIXTabsMinimizeBehavior::Never:
+        _tabBar.tabBarMinimizeBehavior = UITabBarMinimizeBehaviorNever;
+        break;
+      case NativeUIXTabsMinimizeBehavior::OnScrollDown:
+        _tabBar.tabBarMinimizeBehavior = UITabBarMinimizeBehaviorOnScrollDown;
+        break;
+      case NativeUIXTabsMinimizeBehavior::OnScrollUp:
+        _tabBar.tabBarMinimizeBehavior = UITabBarMinimizeBehaviorOnScrollUp;
+        break;
+      default:
+        _tabBar.tabBarMinimizeBehavior = UITabBarMinimizeBehaviorAutomatic;
+    }
+  }
   [super updateProps:props oldProps:oldProps];
   [self applySelection];
 }
