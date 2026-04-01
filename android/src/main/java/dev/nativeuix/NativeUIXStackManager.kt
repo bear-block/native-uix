@@ -25,7 +25,6 @@ import androidx.transition.Transition
 import kotlinx.coroutines.launch
 import androidx.transition.TransitionManager
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.WritableNativeMap
 import com.facebook.react.uimanager.ReactStylesDiffMap
 import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.uimanager.ThemedReactContext
@@ -38,7 +37,6 @@ import com.facebook.react.viewmanagers.NativeUIXStackScreenManagerInterface
 import com.facebook.react.views.view.ReactViewGroup
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.transition.MaterialSharedAxis
-import kotlin.math.abs
 
 /**
  * One route of a NativeUIXStack. Fabric sets every view VISIBLE on each layout
@@ -50,6 +48,8 @@ class NativeUIXStackScreenView(context: ThemedReactContext) : ReactViewGroup(con
   var routeKey = ""
   var title = ""
   var headerSize = "large"
+  var headerHidden = false
+  var hidesTabBar = false
   var subtitle = ""
   var trailingId = ""
   var trailingLabel = ""
@@ -76,25 +76,7 @@ class NativeUIXStackScreenView(context: ThemedReactContext) : ReactViewGroup(con
   }
 
   /** Lays the route out at the content area's size, below the app bar. */
-  internal fun reportSize(widthPx: Int, heightPx: Int) {
-    val state = stateWrapper ?: return
-    if (widthPx <= 0 || heightPx <= 0) return
-    val density = resources.displayMetrics.density
-    val width = widthPx / density
-    val height = heightPx / density
-    val current = state.stateData
-    if (current != null && current.hasKey("width") && current.hasKey("height") &&
-      abs(current.getDouble("width") - width) < 0.5 && abs(current.getDouble("height") - height) < 0.5
-    ) {
-      return
-    }
-    state.updateState(
-      WritableNativeMap().apply {
-        putDouble("width", width.toDouble())
-        putDouble("height", height.toDouble())
-      },
-    )
-  }
+  internal fun reportSize(widthPx: Int, heightPx: Int) = stateWrapper.reportContainerSize(this, widthPx, heightPx)
 
   internal fun emitHeaderAction() {
     dispatchNativeEvent("topHeaderAction", Arguments.createMap().apply { putString("id", trailingId) })
@@ -147,6 +129,10 @@ internal class NativeUIXStackContent(
       androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput,
     )
     consumed[1] = -used.y.toInt()
+    // Move the routes now, inside this scroll step: the scroll view measures
+    // the next touch against its new position. Waiting for the bar's layout
+    // a frame later makes every step overshoot and bounce.
+    if (used.y != 0f) header.follow?.invoke()
   }
 
   override fun onNestedScroll(target: View, dxConsumed: Int, dyConsumed: Int, dxUnconsumed: Int, dyUnconsumed: Int) {
@@ -155,6 +141,7 @@ internal class NativeUIXStackContent(
       androidx.compose.ui.geometry.Offset(0f, -dyUnconsumed.toFloat()),
       androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput,
     )
+    header.follow?.invoke()
   }
 
   // Settles a large bar fully expanded or collapsed when scrolling stops.
@@ -255,9 +242,19 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     // height stays the area below the collapsed bar, so collapsing moves them
     // without a React layout.
     header.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
+      val offset = headerOffset()
+      expandedHeader = (bottom - top) - offset
       content.translationY = (bottom - top).toFloat()
     }
+    headerBridge.follow = {
+      if (expandedHeader > 0f) content.translationY = expandedHeader + headerOffset()
+    }
   }
+
+  /** Header height with nothing collapsed, from its last layout. */
+  private var expandedHeader = 0f
+
+  private fun headerOffset(): Float = headerBridge.behavior?.state?.heightOffset ?: 0f
 
   override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
     super.onSizeChanged(w, h, oldw, oldh)
@@ -267,7 +264,8 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
   private fun sizeContent() {
     val statusBar = ViewCompat.getRootWindowInsets(this)
       ?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
-    val collapsed = (dp(64) + statusBar).toInt()
+    // A route without a header (one hosting Tabs) takes the whole stack.
+    val collapsed = if (shown?.headerHidden == true) 0 else (dp(64) + statusBar).toInt()
     val height = (this.height - collapsed).coerceAtLeast(0)
     if (content.layoutParams.height != height) {
       content.layoutParams = content.layoutParams.apply { this.height = height }
@@ -381,8 +379,52 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     dispatchNativeEvent("topNativePop", Arguments.createMap().apply { putString("topKey", below.routeKey) })
   }
 
+  private var shownForTabs: NativeUIXStackScreenView? = null
+
+  /** The route on top covers the tab bar. */
+  internal val coversTabBar: Boolean get() = shownForTabs?.hidesTabBar == true
+
+  private fun enclosingTabs(): NativeUIXTabsView? {
+    var parent = parent
+    while (parent != null) {
+      if (parent is NativeUIXTabsView) return parent
+      parent = parent.parent
+    }
+    return null
+  }
+
+  /** Re-selected tab: back to the first route, as Material navigation does. */
+  internal fun popToRootNatively() {
+    val active = screens.filter { !it.popped }
+    val root = active.firstOrNull() ?: return
+    val top = shown ?: return
+    if (root === top) return
+    if (isAttachedToWindow) {
+      val transition: Transition = MaterialSharedAxis(MaterialSharedAxis.X, false)
+      TransitionManager.beginDelayedTransition(content, transition)
+    }
+    for (screen in active.drop(1)) {
+      screen.popped = true
+      screen.inactive = true
+    }
+    root.inactive = false
+    shown = root
+    applyHeader(root)
+    updateBackCallback()
+    dispatchNativeEvent("topNativePop", Arguments.createMap().apply { putString("topKey", root.routeKey) })
+  }
+
   private fun updateBackCallback() {
-    backCallback.isEnabled = below(shown) != null
+    // A stack in a hidden tab must not take system back.
+    backCallback.isEnabled = below(shown) != null && isAggregatedVisible
+  }
+
+  private var isAggregatedVisible = true
+
+  override fun onVisibilityAggregated(isVisible: Boolean) {
+    super.onVisibilityAggregated(isVisible)
+    isAggregatedVisible = isVisible
+    updateBackCallback()
   }
 
   /** Reapplies the header when the route on top changes its props. */
@@ -391,7 +433,15 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
   }
 
   private fun applyHeader(screen: NativeUIXStackScreenView) {
+    shownForTabs = screen
+    enclosingTabs()?.updateBar()
     sizeContent()
+    if (screen.headerHidden) {
+      headerModel.value = null
+      content.translationY = 0f
+      header.post { requestLayout() }
+      return
+    }
     headerModel.value = StackHeaderModel(
       routeKey = screen.routeKey,
       title = screen.title,
@@ -460,6 +510,14 @@ class NativeUIXStackScreenManager :
 
   override fun setScreenTitle(view: NativeUIXStackScreenView, value: String?) {
     view.title = value.orEmpty()
+  }
+
+  override fun setHidesTabBar(view: NativeUIXStackScreenView, value: Boolean) {
+    view.hidesTabBar = value
+  }
+
+  override fun setHeaderHidden(view: NativeUIXStackScreenView, value: Boolean) {
+    view.headerHidden = value
   }
 
   override fun setHeaderSize(view: NativeUIXStackScreenView, value: String?) {

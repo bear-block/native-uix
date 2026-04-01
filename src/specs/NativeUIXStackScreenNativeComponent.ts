@@ -6,6 +6,8 @@ export type NativeUIXHeaderActionEvent = Readonly<{id: string}>;
 export interface NativeUIXStackScreenProps extends ViewProps {
   routeKey: string;
   screenTitle: string;
+  headerHidden?: CodegenTypes.WithDefault<boolean, false>;
+  hidesTabBar?: CodegenTypes.WithDefault<boolean, false>;
   headerSize?: CodegenTypes.WithDefault<'compact' | 'large', 'large'>;
   headerSubtitle?: string;
   trailingId?: string;

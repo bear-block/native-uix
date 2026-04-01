@@ -21,5 +21,7 @@ class NativeUIXPackage : ReactPackage {
     NativeUIXScrollingListManager(),
     NativeUIXStackManager(),
     NativeUIXStackScreenManager(),
+    NativeUIXTabsManager(),
+    NativeUIXTabManager(),
   )
 }

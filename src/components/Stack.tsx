@@ -1,14 +1,14 @@
-import * as React from "react";
+import * as React from 'react';
 import {
   ScrollView,
   StyleSheet,
   type ScrollViewProps,
   type StyleProp,
   type ViewStyle,
-} from "react-native";
+} from 'react-native';
 
-import NativeUIXStack from "../specs/NativeUIXStackNativeComponent";
-import NativeUIXStackScreen from "../specs/NativeUIXStackScreenNativeComponent";
+import NativeUIXStack from '../specs/NativeUIXStackNativeComponent';
+import NativeUIXStackScreen from '../specs/NativeUIXStackScreenNativeComponent';
 
 export type StackRoute = {
   /** Unique per route instance; the same screen can be on the stack twice. */
@@ -26,7 +26,7 @@ export type StackHeaderAction = {
 export type StackHeader = {
   title: string;
   /** Large collapses with the screen's scroll view; compact stays fixed. */
-  size?: "large" | "compact";
+  size?: 'large' | 'compact';
   /** iOS 26+ subtitle (prompt on older iOS); Android app bar subtitle. */
   subtitle?: string;
   trailingAction?: StackHeaderAction;
@@ -37,6 +37,8 @@ export type StackNavigation = {
   pop: () => void;
   popToRoot: () => void;
   replace: (name: string, params?: object) => void;
+  /** The Stack this one is nested in, for routes that cover its container (Tabs). */
+  parent?: StackNavigation;
 };
 
 export type StackScreenProps = {
@@ -46,14 +48,19 @@ export type StackScreenProps = {
 
 export type StackScreenDefinition = {
   component: React.ComponentType<StackScreenProps>;
-  header:
-    | StackHeader
-    | ((route: StackRoute, navigation: StackNavigation) => StackHeader);
+  /**
+   * Pushed inside a tab, the route covers the tab bar: on iOS the bar slides
+   * away with the push (`hidesBottomBarWhenPushed`); on Android the
+   * navigation bar slides down.
+   */
+  hidesTabBar?: boolean;
+  /** `null` shows no header, for a route that hosts its own (Tabs with Stacks). */
+  header: StackHeader | null | ((route: StackRoute, navigation: StackNavigation) => StackHeader | null);
 };
 
 export type StackProps = {
   screens: Record<string, StackScreenDefinition>;
-  initialRoute: { name: string; params?: object };
+  initialRoute: {name: string; params?: object};
   style?: StyleProp<ViewStyle>;
 };
 
@@ -64,7 +71,7 @@ const RouteContext = React.createContext<StackRoute | null>(null);
 export function useStackNavigation(): StackNavigation {
   const navigation = React.useContext(NavigationContext);
   if (navigation == null) {
-    throw new Error("useStackNavigation must be used inside a Stack screen.");
+    throw new Error('useStackNavigation must be used inside a Stack screen.');
   }
   return navigation;
 }
@@ -73,7 +80,7 @@ export function useStackNavigation(): StackNavigation {
 export function useStackRoute(): StackRoute {
   const route = React.useContext(RouteContext);
   if (route == null) {
-    throw new Error("useStackRoute must be used inside a Stack screen.");
+    throw new Error('useStackRoute must be used inside a Stack screen.');
   }
   return route;
 }
@@ -85,11 +92,7 @@ export function useStackRoute(): StackRoute {
  * the user commits natively is reported once and removed here, never popped
  * a second time. Routes below the top stay mounted, keeping their state.
  */
-export function Stack({
-  screens,
-  initialRoute,
-  style,
-}: StackProps): React.JSX.Element {
+export function Stack({screens, initialRoute, style}: StackProps): React.JSX.Element {
   const nextKey = React.useRef(0);
   const makeRoute = React.useCallback(
     (name: string, params?: object): StackRoute => {
@@ -97,7 +100,7 @@ export function Stack({
         throw new Error(`Stack: unknown screen "${name}"`);
       }
       nextKey.current += 1;
-      return { key: `${name}-${nextKey.current}`, name, params };
+      return {key: `${name}-${nextKey.current}`, name, params};
     },
     [screens],
   );
@@ -105,41 +108,40 @@ export function Stack({
     makeRoute(initialRoute.name, initialRoute.params),
   ]);
 
+  const parent = React.useContext(NavigationContext) ?? undefined;
   const navigation = React.useMemo<StackNavigation>(
     () => ({
+      parent,
       push: (name, params) => {
         const route = makeRoute(name, params);
-        setRoutes((current) => [...current, route]);
+        setRoutes(current => [...current, route]);
       },
-      pop: () =>
-        setRoutes((current) =>
-          current.length > 1 ? current.slice(0, -1) : current,
-        ),
-      popToRoot: () => setRoutes((current) => current.slice(0, 1)),
+      pop: () => setRoutes(current => (current.length > 1 ? current.slice(0, -1) : current)),
+      popToRoot: () => setRoutes(current => current.slice(0, 1)),
       replace: (name, params) => {
         const route = makeRoute(name, params);
-        setRoutes((current) => [...current.slice(0, -1), route]);
+        setRoutes(current => [...current.slice(0, -1), route]);
       },
     }),
-    [makeRoute],
+    [makeRoute, parent],
   );
 
   return (
     <NavigationContext.Provider value={navigation}>
       <NativeUIXStack
         style={[styles.stack, style]}
-        onNativePop={(event) => {
-          const { topKey } = event.nativeEvent;
-          setRoutes((current) => {
-            const index = current.findIndex((route) => route.key === topKey);
+        onNativePop={event => {
+          const {topKey} = event.nativeEvent;
+          setRoutes(current => {
+            const index = current.findIndex(route => route.key === topKey);
             return index >= 0 ? current.slice(0, index + 1) : current;
           });
         }}
       >
-        {routes.map((route) => {
+        {routes.map(route => {
           const definition = screens[route.name]!;
           const header =
-            typeof definition.header === "function"
+            typeof definition.header === 'function'
               ? definition.header(route, navigation)
               : definition.header;
           const Component = definition.component;
@@ -147,15 +149,17 @@ export function Stack({
             <NativeUIXStackScreen
               key={route.key}
               routeKey={route.key}
-              screenTitle={header.title}
-              headerSize={header.size ?? "large"}
-              headerSubtitle={header.subtitle ?? ""}
-              trailingId={header.trailingAction ? "trailing" : ""}
-              trailingLabel={header.trailingAction?.label ?? ""}
-              trailingDisabled={header.trailingAction?.disabled ?? false}
+              headerHidden={header == null}
+              hidesTabBar={definition.hidesTabBar ?? false}
+              screenTitle={header?.title ?? ''}
+              headerSize={header?.size ?? 'large'}
+              headerSubtitle={header?.subtitle ?? ''}
+              trailingId={header?.trailingAction ? 'trailing' : ''}
+              trailingLabel={header?.trailingAction?.label ?? ''}
+              trailingDisabled={header?.trailingAction?.disabled ?? false}
               onHeaderAction={() => {
-                if (!header.trailingAction?.disabled) {
-                  header.trailingAction?.onPress();
+                if (!header?.trailingAction?.disabled) {
+                  header?.trailingAction?.onPress();
                 }
               }}
               collapsable={false}
@@ -178,13 +182,7 @@ export function Stack({
  * through nested scrolling.
  */
 export function StackScrollView(props: ScrollViewProps): React.JSX.Element {
-  return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      nestedScrollEnabled
-      {...props}
-    />
-  );
+  return <ScrollView contentInsetAdjustmentBehavior="automatic" nestedScrollEnabled {...props} />;
 }
 
-const styles = StyleSheet.create({ stack: { flex: 1 } });
+const styles = StyleSheet.create({stack: {flex: 1}});

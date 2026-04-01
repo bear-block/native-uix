@@ -45,6 +45,9 @@ internal class StackHeaderBridge {
   /** Collapse state per route, so a route keeps its header when returned to. */
   val states = mutableMapOf<String, TopAppBarState>()
   var behavior: TopAppBarScrollBehavior? = null
+
+  /** Moves the routes with the bar; set by the stack. */
+  var follow: (() -> Unit)? = null
   var scope: CoroutineScope? = null
 
   fun stateFor(routeKey: String): TopAppBarState =

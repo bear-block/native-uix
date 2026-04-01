@@ -90,7 +90,33 @@ function Home({navigation}: StackScreenProps) {
 
 `navigation` offers `push(name, params)`, `pop()`, `popToRoot()` and `replace(name, params)`; `useStackNavigation()` and `useStackRoute()` read them from any component in a screen. React declares the routes and the platform runs every transition. A pop the user commits natively is reported once and removed from the route list; a cancelled swipe or predictive back changes nothing. Routes below the top stay mounted, so their React state and scroll positions survive.
 
+A route with `hidesTabBar: true`, pushed on the Stack of a tab, covers the tab bar: on iOS the bar slides away with the push (`hidesBottomBarWhenPushed`), on Android the navigation bar slides down. A route with `header: null` shows no header. A Stack nested in another Stack reaches it with `navigation.parent`; on iOS avoid nesting a Stack in a Stack route for full-screen content, because UIKit does not extend a nested navigation bar under the status bar.
+
 Use `StackScrollView` (or `ScrollingList`, `SettingsScreen`) as a screen's scroll view: on iOS its insets follow the navigation bar and the large title collapses with it; on Android it drives the app bar through nested scrolling. On Android the stack extends under the status bar (edge to edge) and keeps its app bar below it. At the root, back is left to the app and the OS. Modals, app-level tabs, deep links and state restoration are not implemented.
+
+## Experimental Tabs
+
+```tsx
+<Tabs initialTab="home" onTabChange={id => console.log(id)}>
+  <Tab id="home" title="Home" icon={{ios: 'house', android: 'Home'}}>
+    <Stack screens={screens} initialRoute={{name: 'home'}} />
+  </Tab>
+  <Tab id="settings" title="Settings" icon={{ios: 'gearshape', android: 'Settings'}} badge="2">
+    <Stack screens={screens} initialRoute={{name: 'settings'}} />
+  </Tab>
+</Tabs>
+```
+
+| | iOS | Android |
+|---|---|---|
+| Container | `UITabBarController` (Liquid Glass on iOS 26+) | Compose Material 3 `NavigationBar` |
+| Icon | SF Symbol name (`icon.ios`) | Material core icon name or app drawable name (`icon.android`) |
+| Badge | Tab bar item badge | Navigation bar badge |
+| Switching | Instant, as UIKit | Material fade through |
+| Back | — | System back on another tab returns to the first tab |
+| Re-selecting the selected tab | Its Stack pops to the root (UIKit) | Its Stack pops to the root |
+
+A tab's content mounts the first time it is selected (`lazy`, default true) and then stays mounted, so each tab's Stack keeps its routes. Pass `selectedTab` to control the selection, or `initialTab` to let the bar keep it; `onTabChange` reports a tab the user selected after the bar has switched. When a tab's first child is a Stack, iOS uses the Stack's `UINavigationController` as the tab's view controller, as UIKit expects. Not implemented yet: minimize on scroll, search tab, bottom accessory, sidebar and navigation rail (see the roadmap in the internal gap analysis).
 
 ## Experimental ScrollingList
 

@@ -22,6 +22,28 @@ using namespace facebook::react;
 @implementation RNUXStackComponentView {
   UINavigationController *_navigation;
   NSMutableArray<RNUXStackScreenComponentView *> *_screens;
+  BOOL _handedOver;
+}
+
+- (UINavigationController *)stackNavigationController
+{
+  return _navigation;
+}
+
+- (void)handOverToContainer
+{
+  _handedOver = YES;
+  if (_navigation.parentViewController != nil) {
+    [_navigation willMoveToParentViewController:nil];
+    [_navigation removeFromParentViewController];
+  }
+  self.contentView = nil;
+}
+
+- (void)reclaimFromContainer
+{
+  _handedOver = NO;
+  self.contentView = _navigation.view;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -47,6 +69,9 @@ using namespace facebook::react;
 - (void)didMoveToWindow
 {
   [super didMoveToWindow];
+  if (_handedOver) {
+    return;
+  }
   if (self.window != nil && _navigation.parentViewController == nil) {
     UIResponder *responder = self.superview;
     while (responder != nil && ![responder isKindOfClass:UIViewController.class]) {
@@ -127,11 +152,35 @@ using namespace facebook::react;
                                  }];
     return;
   }
-  BOOL animated = self.window != nil && _navigation.viewControllers.count > 0 && declared.count > 0;
-  [_navigation setViewControllers:declared animated:animated];
+  NSArray<UIViewController *> *current = _navigation.viewControllers;
+  BOOL animated = _navigation.view.window != nil && current.count > 0 && declared.count > 0;
+  // Push and pop through their own calls where the change is one of those,
+  // so UIKit runs everything it ties to them (hidesBottomBarWhenPushed).
+  if (current.count > 0 && declared.count == current.count + 1 &&
+      [[declared subarrayWithRange:NSMakeRange(0, current.count)] isEqualToArray:current]) {
+    [_navigation pushViewController:declared.lastObject animated:animated];
+  } else if (declared.count > 0 && declared.count < current.count &&
+             [[current subarrayWithRange:NSMakeRange(0, declared.count)] isEqualToArray:declared]) {
+    [_navigation popToViewController:declared.lastObject animated:animated];
+  } else {
+    [_navigation setViewControllers:declared animated:animated];
+  }
 }
 
 #pragma mark - UINavigationControllerDelegate
+
+// Each route decides whether the bar shows; UIKit animates it with the push
+// or pop, and follows an interactive pop.
+- (void)navigationController:(UINavigationController *)navigationController
+      willShowViewController:(UIViewController *)viewController
+                    animated:(BOOL)animated
+{
+  for (RNUXStackScreenComponentView *screen in _screens) {
+    if (screen.controller == viewController) {
+      [navigationController setNavigationBarHidden:screen.headerHidden animated:animated];
+    }
+  }
+}
 
 - (void)navigationController:(UINavigationController *)navigationController
        didShowViewController:(UIViewController *)viewController
@@ -165,5 +214,8 @@ using namespace facebook::react;
   [super prepareForRecycle];
   [_screens removeAllObjects];
   [_navigation setViewControllers:@[] animated:NO];
+  if (_handedOver) {
+    [self reclaimFromContainer];
+  }
 }
 @end

@@ -28,3 +28,5 @@ export type {
   StackScreenDefinition,
   StackScreenProps,
 } from './components/Stack';
+export {Tab, Tabs} from './components/Tabs';
+export type {TabIcon, TabProps, TabsProps} from './components/Tabs';

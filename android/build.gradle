@@ -47,6 +47,8 @@ dependencies {
   implementation('androidx.compose.ui:ui:1.9.0')
   implementation('androidx.compose.foundation:foundation:1.9.0')
   implementation('androidx.compose.material3:material3:1.5.0-alpha06')
+  // Tab icons by Material name (Home, Settings, …).
+  implementation('androidx.compose.material:material-icons-core:1.7.8')
   implementation('com.google.android.material:material:1.13.0')
   implementation('androidx.recyclerview:recyclerview:1.4.0')
   implementation('androidx.transition:transition:1.5.0')

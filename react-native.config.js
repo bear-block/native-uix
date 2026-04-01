@@ -16,6 +16,8 @@ export default {
           'NativeUIXScrollingListComponentDescriptor',
           'NativeUIXStackComponentDescriptor',
           'NativeUIXStackScreenComponentDescriptor',
+          'NativeUIXTabsComponentDescriptor',
+          'NativeUIXTabComponentDescriptor',
         ],
         cmakeListsPath: 'src/main/jni/CMakeLists.txt',
       },

@@ -17,6 +17,7 @@ JSI_EXPORT extern const char NativeUIXButtonComponentName[];
 JSI_EXPORT extern const char NativeUIXSwitchComponentName[];
 JSI_EXPORT extern const char NativeUIXSegmentedControlComponentName[];
 JSI_EXPORT extern const char NativeUIXStackScreenComponentName[];
+JSI_EXPORT extern const char NativeUIXTabComponentName[];
 
 // Hug: natural width, capped by the parent. Fill: take the available width.
 enum class NativeUIXWidthMode { Hug, Fill };
@@ -98,29 +99,28 @@ using NativeUIXSegmentedControlComponentDescriptor =
     ConcreteComponentDescriptor<NativeUIXSegmentedControlShadowNode>;
 
 /*
- * A navigation stack screen. Where the platform places screens below a native
- * app bar (Android), the stack writes the content area's size into the state
- * and the screen is laid out at that size; until then, and on iOS, where
- * screens extend under the translucent bar, it fills the stack. On iOS the
- * state's top inset pads content that is not in a scroll view below the bar,
- * as UIKit's safe area does.
+ * A screen of a native container (stack route, tab). Where the platform places
+ * screens beside native bars (Android app bar, navigation bar), the container
+ * writes the content area's size into the state and the screen is laid out
+ * at that size; until then, and on iOS, where screens extend under
+ * translucent bars, it fills the container. On iOS the state's top inset pads
+ * content that is not in a scroll view below the bar, as UIKit's safe area
+ * does.
  */
-using NativeUIXStackScreenShadowNode = ConcreteViewShadowNode<
-    NativeUIXStackScreenComponentName,
-    NativeUIXStackScreenProps,
-    NativeUIXStackScreenEventEmitter,
-    NativeUIXStackScreenState>;
+template <const char *concreteComponentName, typename PropsT, typename EventEmitterT>
+using NativeUIXContainerShadowNode =
+    ConcreteViewShadowNode<concreteComponentName, PropsT, EventEmitterT, NativeUIXStackScreenState>;
 
-class NativeUIXStackScreenComponentDescriptor final
-    : public ConcreteComponentDescriptor<NativeUIXStackScreenShadowNode> {
+template <typename ShadowNodeT>
+class NativeUIXContainerComponentDescriptor final : public ConcreteComponentDescriptor<ShadowNodeT> {
  public:
-  using ConcreteComponentDescriptor::ConcreteComponentDescriptor;
+  using ConcreteComponentDescriptor<ShadowNodeT>::ConcreteComponentDescriptor;
 
   void adopt(ShadowNode &shadowNode) const override
   {
-    auto &screen = static_cast<NativeUIXStackScreenShadowNode &>(shadowNode);
-    const auto &state = screen.getStateData();
-    auto &layoutable = static_cast<YogaLayoutableShadowNode &>(screen);
+    auto &node = static_cast<ShadowNodeT &>(shadowNode);
+    const auto &state = node.getStateData();
+    auto &layoutable = static_cast<YogaLayoutableShadowNode &>(node);
     if (state.size.width > 0 && state.size.height > 0) {
       layoutable.setSize(state.size);
       layoutable.setPositionType(YGPositionTypeAbsolute);
@@ -128,8 +128,20 @@ class NativeUIXStackScreenComponentDescriptor final
     if (state.topInset > 0) {
       layoutable.setPadding(RectangleEdges<Float>{0, state.topInset, 0, 0});
     }
-    ConcreteComponentDescriptor::adopt(shadowNode);
+    ConcreteComponentDescriptor<ShadowNodeT>::adopt(shadowNode);
   }
 };
+
+using NativeUIXStackScreenShadowNode = NativeUIXContainerShadowNode<
+    NativeUIXStackScreenComponentName,
+    NativeUIXStackScreenProps,
+    NativeUIXStackScreenEventEmitter>;
+using NativeUIXStackScreenComponentDescriptor =
+    NativeUIXContainerComponentDescriptor<NativeUIXStackScreenShadowNode>;
+
+// A tab of NativeUIXTabs; on Android sized to the area above the navigation bar.
+using NativeUIXTabShadowNode =
+    NativeUIXContainerShadowNode<NativeUIXTabComponentName, NativeUIXTabProps, ViewEventEmitter>;
+using NativeUIXTabComponentDescriptor = NativeUIXContainerComponentDescriptor<NativeUIXTabShadowNode>;
 
 } // namespace facebook::react

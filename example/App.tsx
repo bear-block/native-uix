@@ -7,8 +7,10 @@ import {
   Stack,
   StackScrollView,
   Switch,
+  Tab,
   TabContent,
   TabPage,
+  Tabs,
   useStackNavigation,
   type ScrollingItem,
   type SettingsSection,
@@ -30,8 +32,8 @@ import {
   type ColorValue,
 } from 'react-native';
 
-// Every screen is reached from Home through the native Stack, so the example
-// also shows push, pop, swipe-back and predictive back everywhere.
+// The app is native Tabs, each with its own native Stack, so the example also
+// shows tab switching, push, pop, swipe-back and predictive back everywhere.
 
 const PLATFORM_LINE =
   Platform.OS === 'ios'
@@ -63,15 +65,8 @@ const HOME_ITEMS: ScrollingItem[] = [
   {
     id: 'tabs',
     section: 'Containers',
-    title: 'Tab content',
-    subtitle: 'Pages stay mounted; native motion',
-    action: true,
-  },
-  {
-    id: 'settings',
-    section: 'Containers',
-    title: 'Settings list',
-    subtitle: 'Descriptor rows with switches',
+    title: 'In-screen tabs',
+    subtitle: 'TabContent: pages stay mounted; native motion',
     action: true,
   },
   {
@@ -82,10 +77,10 @@ const HOME_ITEMS: ScrollingItem[] = [
     action: true,
   },
   {
-    id: 'navigation',
+    id: 'cover',
     section: 'Navigation',
-    title: 'Stack',
-    subtitle: 'Push, replace, pop, header actions',
+    title: 'Over the tab bar',
+    subtitle: 'hidesTabBar: the tab bar slides away',
     action: true,
   },
   {
@@ -97,6 +92,19 @@ const HOME_ITEMS: ScrollingItem[] = [
 ];
 
 function Home({ navigation }: StackScreenProps) {
+  // Automated checks on iOS: `-NativeUIXCover 1` pushes over the tab bar after
+  // 2 s, then pops 2 s later.
+  React.useEffect(() => {
+    if (Platform.OS !== 'ios' || !Settings.get('NativeUIXCover')) {
+      return;
+    }
+    const push = setTimeout(() => navigation.push('cover'), 2000);
+    const pop = setTimeout(() => navigation.pop(), 4000);
+    return () => {
+      clearTimeout(push);
+      clearTimeout(pop);
+    };
+  }, [navigation]);
   return (
     <ScrollingList items={HOME_ITEMS} onItemPress={id => navigation.push(id)} />
   );
@@ -115,7 +123,7 @@ const screens: Record<string, StackScreenDefinition> = {
   },
   tabs: {
     component: TabsScreen,
-    header: { title: 'Tab content', size: 'compact' },
+    header: { title: 'In-screen tabs', size: 'compact' },
   },
   settings: { component: SettingsDemo, header: { title: 'Settings' } },
   list: {
@@ -130,17 +138,53 @@ const screens: Record<string, StackScreenDefinition> = {
     }),
   },
   navigation: { component: NavigationScreen, header: navigationHeader },
+  cover: {
+    component: ItemScreen,
+    header: { title: 'Over the tab bar', size: 'compact' },
+    hidesTabBar: true,
+  },
 };
 
 // System bars follow the platform theme (light and dark), as in native apps.
 export default function App(): React.JSX.Element {
-  return <Stack screens={screens} initialRoute={{ name: launchRoute() }} />;
+  return (
+    <Tabs initialTab={launchTab()}>
+      <Tab
+        id="components"
+        title="Components"
+        icon={{ ios: 'square.grid.2x2', android: 'Home' }}
+      >
+        <Stack screens={screens} initialRoute={{ name: launchRoute() }} />
+      </Tab>
+      <Tab
+        id="navigation"
+        title="Navigation"
+        icon={{ ios: 'arrow.triangle.branch', android: 'List' }}
+      >
+        <Stack screens={screens} initialRoute={{ name: 'navigation' }} />
+      </Tab>
+      <Tab
+        id="settings"
+        title="Settings"
+        icon={{ ios: 'gearshape', android: 'Settings' }}
+        badge="2"
+      >
+        <Stack screens={screens} initialRoute={{ name: 'settings' }} />
+      </Tab>
+    </Tabs>
+  );
 }
 
-// Automated checks on iOS: `-NativeUIXRoute tabs` starts on that screen.
+// Automated checks on iOS: `-NativeUIXRoute tabs` starts the Components tab on
+// that screen; `-NativeUIXTab settings` starts on another tab.
 function launchRoute(): string {
   const route = Platform.OS === 'ios' ? Settings.get('NativeUIXRoute') : null;
   return typeof route === 'string' && route in screens ? route : 'home';
+}
+
+function launchTab(): string {
+  const tab = Platform.OS === 'ios' ? Settings.get('NativeUIXTab') : null;
+  return typeof tab === 'string' ? tab : 'components';
 }
 
 function useColors() {
@@ -470,7 +514,8 @@ function ListScreen({ navigation }: StackScreenProps) {
 
 function ItemScreen({ route }: StackScreenProps) {
   const colors = useColors();
-  const { title } = route.params as { title: string };
+  const title =
+    (route.params as { title?: string } | undefined)?.title ?? 'this screen';
   return (
     <StackScrollView contentContainerStyle={styles.scroll}>
       <Text style={[styles.body, { color: colors.text }]}>

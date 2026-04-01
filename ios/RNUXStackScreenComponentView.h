@@ -8,6 +8,10 @@ NS_ASSUME_NONNULL_BEGIN
 @interface RNUXStackScreenComponentView : RCTViewComponentView
 @property (nonatomic, readonly) UIViewController *controller;
 @property (nonatomic, readonly, copy) NSString *routeKey;
+/// The route shows no navigation bar (it hosts its own, such as Tabs).
+@property (nonatomic, readonly) BOOL headerHidden;
+/// Pushed over a tab bar: the bar slides away with the push.
+@property (nonatomic, readonly) BOOL hidesTabBar;
 /// Set when the user popped this route natively, before React removes it.
 @property (nonatomic) BOOL popped;
 /// Points the navigation bar at this screen's first scroll view, so large

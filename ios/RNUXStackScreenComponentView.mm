@@ -86,6 +86,7 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
   [_controller.view addSubview:self];
   _routeKey = @"";
   _popped = NO;
+  _headerHidden = NO;
 }
 
 - (UIViewController *)controller
@@ -97,6 +98,15 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
 {
   const auto &next = *std::static_pointer_cast<NativeUIXStackScreenProps const>(props);
   _routeKey = RNUXString(next.routeKey);
+  _hidesTabBar = next.hidesTabBar;
+  _controller.hidesBottomBarWhenPushed = next.hidesTabBar;
+  if (_headerHidden != next.headerHidden) {
+    _headerHidden = next.headerHidden;
+    UINavigationController *navigation = _controller.navigationController;
+    if (navigation.topViewController == _controller) {
+      [navigation setNavigationBarHidden:_headerHidden animated:self.window != nil];
+    }
+  }
   UINavigationItem *item = _controller.navigationItem;
   item.title = RNUXString(next.screenTitle);
   item.largeTitleDisplayMode = next.headerSize == NativeUIXStackScreenHeaderSize::Large

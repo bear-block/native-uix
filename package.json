@@ -68,7 +68,9 @@
         "NativeUIXTabPage": "RNUXTabPageComponentView",
         "NativeUIXScrollingList": "RNUXScrollingListComponentView",
         "NativeUIXStack": "RNUXStackComponentView",
-        "NativeUIXStackScreen": "RNUXStackScreenComponentView"
+        "NativeUIXStackScreen": "RNUXStackScreenComponentView",
+        "NativeUIXTabs": "RNUXTabsComponentView",
+        "NativeUIXTab": "RNUXTabComponentView"
       }
     }
   }

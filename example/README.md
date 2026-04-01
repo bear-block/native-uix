@@ -4,12 +4,12 @@ This React Native CLI app is the interactive acceptance surface for Native UIX. 
 
 ## What to check
 
-The app is a native `Stack`. **Home** lists every demo; each row pushes a route. Go back with the back button, an edge swipe (iOS), or system back and predictive back (Android 14+). Routes you come back to keep their state and scroll position.
+The app is native `Tabs` (Components, Navigation, Settings), each tab with its own `Stack`. Switching tabs keeps each tab's routes; on Android, back on another tab returns to Components. **Home** lists the component demos; each row pushes a route. **Over the tab bar** is a `hidesTabBar` route: the tab bar slides away with the push. Tapping the selected tab returns its Stack to the first route. Go back with the back button, an edge swipe (iOS), or system back and predictive back (Android 14+). Routes you come back to keep their state and scroll position.
 
 **Navigation**
 
 1. Home has a large title that collapses as the list scrolls.
-2. **Stack**: odd levels use a large title, even levels a compact one. **Count** survives pushing and coming back. **Replace**, **Pop**, **Pop to root** and the **Done** header action do what they say, with native motion.
+2. **Navigation tab**: odd levels use a large title, even levels a compact one. **Count** survives pushing and coming back. **Replace**, **Pop**, **Pop to root** and the **Done** header action do what they say, with native motion.
 3. Start an edge swipe (iOS) or a predictive back gesture (Android) and cancel it: nothing is popped.
 
 **Buttons**: **Continue** counts each tap once; every enabled button adds a line to the event log, **Disabled** never does; long labels wrap, short buttons hug their text.
@@ -20,13 +20,13 @@ The app is a native `Stack`. **Home** lists every demo; each row pushes a route.
 
 **Tab content**: pages stay mounted; each page's count and scroll position survive switching. The second control picks the motion; `Default` is no animation on iOS and Material fade through on Android.
 
-**Settings list**: **Airplane mode** animates without the list reloading and disables **Network**; **Data roaming** returns to off (rejected); action rows push a detail route.
+**Settings tab**: **Airplane mode** animates without the list reloading and disables **Network**; **Data roaming** returns to off (rejected); action rows push a detail route.
 
 **Scrolling list**: 80 sectioned rows; pressable rows push a detail route, informational rows do not respond.
 
 Toggle dark mode while the app runs: every screen, the header and the system bars follow it.
 
-On iOS, launch arguments help automated captures: `-NativeUIXRoute <name>` starts on a route (for example `tabs`), and `-NativeUIXRoute navigation -NativeUIXScript 1` pushes twice, pops, then pops to the root, 2 s apart.
+On iOS, launch arguments help automated captures: `-NativeUIXTab <id>` starts on a tab, `-NativeUIXRoute <name>` starts the Components tab on a route (for example `tabs`), and `-NativeUIXTab navigation -NativeUIXScript 1` pushes twice, pops, then pops to the root, 2 s apart.
 
 ## Run
 

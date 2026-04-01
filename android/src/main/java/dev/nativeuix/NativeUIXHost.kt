@@ -33,6 +33,30 @@ internal fun materialContext(context: Context): Context {
   ).also { materialContexts[context] = CachedTheme(night, java.lang.ref.WeakReference(it)) }
 }
 
+/**
+ * Writes the area a container gives one of its screens (stack route, tab)
+ * into the screen's shadow-node state, so React lays it out at that size.
+ */
+internal fun StateWrapper?.reportContainerSize(view: View, widthPx: Int, heightPx: Int) {
+  val state = this ?: return
+  if (widthPx <= 0 || heightPx <= 0) return
+  val density = view.resources.displayMetrics.density
+  val width = widthPx / density
+  val height = heightPx / density
+  val current = state.stateData
+  if (current != null && current.hasKey("width") && current.hasKey("height") &&
+    abs(current.getDouble("width") - width) < 0.5 && abs(current.getDouble("height") - height) < 0.5
+  ) {
+    return
+  }
+  state.updateState(
+    WritableNativeMap().apply {
+      putDouble("width", width.toDouble())
+      putDouble("height", height.toDouble())
+    },
+  )
+}
+
 internal class NativeUIXEvent(
   surfaceId: Int,
   viewId: Int,
@@ -64,6 +88,8 @@ open class NativeUIXHostLayout(context: Context) : FrameLayout(context) {
   @Suppress("RedundantNullableReturnType")
   private val measureAndLayout: Runnable? = Runnable {
     layoutPending = false
+    // Compose children cannot measure before they have a window.
+    if (!isAttachedToWindow) return@Runnable
     withoutRelayout {
       measure(
         MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
@@ -108,6 +134,11 @@ open class NativeUIXHostLayout(context: Context) : FrameLayout(context) {
     } finally {
       measuring = false
     }
+  }
+
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    requestLayout()
   }
 
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
