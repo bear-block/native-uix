@@ -27,7 +27,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.drop
 
 /** What the header shows for the route on top. */
 internal data class StackHeaderModel(
@@ -38,6 +41,8 @@ internal data class StackHeaderModel(
   val trailingLabel: String,
   val trailingDisabled: Boolean,
   val canGoBack: Boolean,
+  val search: Boolean = false,
+  val searchPlaceholder: String = "",
 )
 
 /** Connects the Compose header to the View stack that feeds it scroll events. */
@@ -48,6 +53,9 @@ internal class StackHeaderBridge {
 
   /** Moves the routes with the bar; set by the stack. */
   var follow: (() -> Unit)? = null
+
+  /** Search text per route, kept while the route is on the stack. */
+  val searchTexts = mutableMapOf<String, androidx.compose.foundation.text.input.TextFieldState>()
   var scope: CoroutineScope? = null
 
   fun stateFor(routeKey: String): TopAppBarState =
@@ -64,6 +72,7 @@ internal fun StackHeader(
   bridge: StackHeaderBridge,
   onBack: () -> Unit,
   onTrailing: () -> Unit,
+  onSearch: (type: String, text: String) -> Unit,
 ) {
   val context = LocalContext.current
   val dark = isSystemInDarkTheme()
@@ -100,7 +109,9 @@ internal fun StackHeader(
       }
     }
     val subtitle: @Composable () -> Unit = { if (model.subtitle.isNotEmpty()) Text(model.subtitle) }
-    if (model.large) {
+    if (model.search) {
+      SearchHeader(model, bridge, navigationIcon, actions, onSearch)
+    } else if (model.large) {
       LargeFlexibleTopAppBar(
         title = { Text(model.title) },
         subtitle = subtitle,
@@ -118,4 +129,49 @@ internal fun StackHeader(
       )
     }
   }
+}
+
+/** Material 3 Expressive search app bar: the bar is the search field. */
+@Composable
+private fun SearchHeader(
+  model: StackHeaderModel,
+  bridge: StackHeaderBridge,
+  navigationIcon: @Composable () -> Unit,
+  actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
+  onSearch: (type: String, text: String) -> Unit,
+) {
+  val searchState = androidx.compose.material3.rememberSearchBarState()
+  val text = bridge.searchTexts.getOrPut(model.routeKey) { androidx.compose.foundation.text.input.TextFieldState() }
+  androidx.compose.runtime.LaunchedEffect(text) {
+    androidx.compose.runtime.snapshotFlow { text.text.toString() }
+      .drop(1)
+      .collect { onSearch("change", it) }
+  }
+  androidx.compose.material3.AppBarWithSearch(
+    state = searchState,
+    inputField = {
+      androidx.compose.material3.SearchBarDefaults.InputField(
+        textFieldState = text,
+        searchBarState = searchState,
+        onSearch = { onSearch("submit", it) },
+        placeholder = { if (model.searchPlaceholder.isNotEmpty()) Text(model.searchPlaceholder) },
+        leadingIcon = { Icon(androidx.compose.material.icons.Icons.Filled.Search, contentDescription = null) },
+        trailingIcon = {
+          if (text.text.isNotEmpty()) {
+            IconButton(onClick = {
+              text.edit { replace(0, length, "") }
+              onSearch("cancel", "")
+            }) {
+              Icon(
+                androidx.compose.material.icons.Icons.Filled.Clear,
+                contentDescription = stringResource(androidx.appcompat.R.string.abc_searchview_description_clear),
+              )
+            }
+          }
+        },
+      )
+    },
+    navigationIcon = navigationIcon,
+    actions = actions,
+  )
 }

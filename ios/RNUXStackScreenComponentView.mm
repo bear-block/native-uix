@@ -55,7 +55,11 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
   return nil;
 }
 
+@interface RNUXStackScreenComponentView () <UISearchResultsUpdating, UISearchBarDelegate>
+@end
+
 @implementation RNUXStackScreenComponentView {
+  UISearchController *_searchController;
   RNUXStackScreenController *_controller;
   __weak UIScrollView *_settledScrollView;
   CFTimeInterval _settleUntil;
@@ -119,6 +123,8 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
     item.prompt = subtitle;
   }
 
+  [self applySearch:next];
+
   NSString *trailingLabel = next.trailingLabel.empty() ? nil : RNUXString(next.trailingLabel);
   _trailingId = RNUXString(next.trailingId);
   if (trailingLabel == nil) {
@@ -167,6 +173,75 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
   }
   _topInset = inset;
   _state->updateState(NativeUIXStackScreenState{_state->getData().size, static_cast<Float>(inset)});
+}
+
+- (void)applySearch:(const NativeUIXStackScreenProps &)props
+{
+  UINavigationItem *item = _controller.navigationItem;
+  if (!props.searchEnabled) {
+    item.searchController = nil;
+    _searchController = nil;
+    return;
+  }
+  if (_searchController == nil) {
+    _searchController = [[UISearchController alloc] initWithSearchResultsController:nil];
+    // Results are this route's own content, filtered by the app.
+    _searchController.obscuresBackgroundDuringPresentation = NO;
+    _searchController.searchResultsUpdater = self;
+    _searchController.searchBar.delegate = self;
+    _controller.definesPresentationContext = YES;
+    item.searchController = _searchController;
+  }
+  _searchController.searchBar.placeholder = props.searchPlaceholder.empty() ? nil : RNUXString(props.searchPlaceholder);
+  item.hidesSearchBarWhenScrolling = props.searchHidesWhenScrolling;
+  if (@available(iOS 16.0, *)) {
+    UINavigationItemSearchBarPlacement placement = UINavigationItemSearchBarPlacementAutomatic;
+    switch (props.searchPlacement) {
+      case NativeUIXStackScreenSearchPlacement::Stacked:
+        placement = UINavigationItemSearchBarPlacementStacked;
+        break;
+      case NativeUIXStackScreenSearchPlacement::Integrated:
+        if (@available(iOS 26.0, *)) {
+          placement = UINavigationItemSearchBarPlacementIntegrated;
+        } else {
+          placement = UINavigationItemSearchBarPlacementStacked;
+        }
+        break;
+      case NativeUIXStackScreenSearchPlacement::IntegratedButton:
+        if (@available(iOS 26.0, *)) {
+          placement = UINavigationItemSearchBarPlacementIntegratedButton;
+        } else {
+          placement = UINavigationItemSearchBarPlacementStacked;
+        }
+        break;
+      default:
+        break;
+    }
+    item.preferredSearchBarPlacement = placement;
+  }
+}
+
+- (void)emitSearch:(NSString *)type text:(NSString *)text
+{
+  auto emitter = std::static_pointer_cast<NativeUIXStackScreenEventEmitter const>(_eventEmitter);
+  if (emitter) {
+    emitter->onSearch({std::string(type.UTF8String), std::string((text ?: @"").UTF8String)});
+  }
+}
+
+- (void)updateSearchResultsForSearchController:(UISearchController *)searchController
+{
+  [self emitSearch:@"change" text:searchController.searchBar.text];
+}
+
+- (void)searchBarSearchButtonClicked:(UISearchBar *)searchBar
+{
+  [self emitSearch:@"submit" text:searchBar.text];
+}
+
+- (void)searchBarCancelButtonClicked:(UISearchBar *)searchBar
+{
+  [self emitSearch:@"cancel" text:@""];
 }
 
 - (void)trailingPressed
@@ -248,6 +323,7 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
   }
   _state.reset();
   _topInset = 0;
+  _searchController = nil;
   [self makeController];
 }
 @end

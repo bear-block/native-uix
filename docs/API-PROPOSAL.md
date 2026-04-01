@@ -87,6 +87,9 @@ function Home({navigation}: StackScreenProps) {
 | `header.size: 'compact'` | Inline title | Small `TopAppBar` that tints when content scrolls under it |
 | `header.subtitle` | Navigation subtitle (iOS 26+), prompt before | App bar subtitle |
 | `header.trailingAction` | Bar button item | App bar action |
+| `header.search` | `UISearchController`; `placement` maps to `preferredSearchBarPlacement` (`integrated`, `integratedButton` on iOS 26+) | Material 3 Expressive `AppBarWithSearch` with a search input field |
+
+The search field owns its text and reports it through `search.onChangeText`, `onSubmit` and `onCancel`; `useStackSearchText()` returns the current text inside the route, for filtering its content.
 
 `navigation` offers `push(name, params)`, `pop()`, `popToRoot()` and `replace(name, params)`; `useStackNavigation()` and `useStackRoute()` read them from any component in a screen. React declares the routes and the platform runs every transition. A pop the user commits natively is reported once and removed from the route list; a cancelled swipe or predictive back changes nothing. Routes below the top stay mounted, so their React state and scroll positions survive.
 

@@ -12,6 +12,7 @@ import {
   TabPage,
   Tabs,
   useStackNavigation,
+  useStackSearchText,
   type ScrollingItem,
   type SettingsSection,
   type StackHeader,
@@ -128,7 +129,11 @@ const screens: Record<string, StackScreenDefinition> = {
   settings: { component: SettingsDemo, header: { title: 'Settings' } },
   list: {
     component: ListScreen,
-    header: { title: 'Library', subtitle: 'Your reading collection' },
+    header: {
+      title: 'Library',
+      subtitle: 'Your reading collection',
+      search: { placeholder: 'Search items' },
+    },
   },
   item: {
     component: ItemScreen,
@@ -500,9 +505,17 @@ const LIST_ITEMS: ScrollingItem[] = Array.from({ length: 80 }, (_, index) => ({
 }));
 
 function ListScreen({ navigation }: StackScreenProps) {
+  const query = useStackSearchText().trim().toLowerCase();
+  const items = React.useMemo(
+    () =>
+      query === ''
+        ? LIST_ITEMS
+        : LIST_ITEMS.filter(item => item.title.toLowerCase().includes(query)),
+    [query],
+  );
   return (
     <ScrollingList
-      items={LIST_ITEMS}
+      items={items}
       onItemPress={id =>
         navigation.push('item', {
           title: LIST_ITEMS.find(item => item.id === id)!.title,

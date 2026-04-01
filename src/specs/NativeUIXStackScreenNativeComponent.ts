@@ -2,6 +2,7 @@ import type {CodegenTypes, HostComponent, ViewProps} from 'react-native';
 import {codegenNativeComponent} from 'react-native';
 
 export type NativeUIXHeaderActionEvent = Readonly<{id: string}>;
+export type NativeUIXSearchEvent = Readonly<{type: string; text: string}>;
 
 export interface NativeUIXStackScreenProps extends ViewProps {
   routeKey: string;
@@ -14,6 +15,15 @@ export interface NativeUIXStackScreenProps extends ViewProps {
   trailingLabel?: string;
   trailingDisabled?: CodegenTypes.WithDefault<boolean, false>;
   onHeaderAction?: CodegenTypes.DirectEventHandler<NativeUIXHeaderActionEvent>;
+  searchEnabled?: CodegenTypes.WithDefault<boolean, false>;
+  searchPlaceholder?: string;
+  searchPlacement?: CodegenTypes.WithDefault<
+    'automatic' | 'integrated' | 'integratedButton' | 'stacked',
+    'automatic'
+  >;
+  searchHidesWhenScrolling?: CodegenTypes.WithDefault<boolean, true>;
+  /** `change` while typing, `submit` on the search key, `cancel` when dismissed. */
+  onSearch?: CodegenTypes.DirectEventHandler<NativeUIXSearchEvent>;
 }
 
 export default codegenNativeComponent<NativeUIXStackScreenProps>(

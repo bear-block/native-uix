@@ -54,6 +54,8 @@ class NativeUIXStackScreenView(context: ThemedReactContext) : ReactViewGroup(con
   var trailingId = ""
   var trailingLabel = ""
   var trailingDisabled = false
+  var searchEnabled = false
+  var searchPlaceholder = ""
 
   /** Popped natively (back, Up, predictive back) before React removed it. */
   internal var popped = false
@@ -77,6 +79,13 @@ class NativeUIXStackScreenView(context: ThemedReactContext) : ReactViewGroup(con
 
   /** Lays the route out at the content area's size, below the app bar. */
   internal fun reportSize(widthPx: Int, heightPx: Int) = stateWrapper.reportContainerSize(this, widthPx, heightPx)
+
+  internal fun emitSearch(type: String, text: String) {
+    dispatchNativeEvent("topSearch", Arguments.createMap().apply {
+      putString("type", type)
+      putString("text", text)
+    })
+  }
 
   internal fun emitHeaderAction() {
     dispatchNativeEvent("topHeaderAction", Arguments.createMap().apply { putString("id", trailingId) })
@@ -192,6 +201,7 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
           bridge = headerBridge,
           onBack = { popNatively(animated = true) },
           onTrailing = { shown?.emitHeaderAction() },
+          onSearch = { type, text -> shown?.emitSearch(type, text) },
         )
       }
     }
@@ -462,6 +472,8 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
       trailingLabel = screen.trailingLabel,
       trailingDisabled = screen.trailingDisabled,
       canGoBack = below(screen) != null,
+      search = screen.searchEnabled,
+      searchPlaceholder = screen.searchPlaceholder,
     )
     // Compose resizes the bar while this host measures, where a layout
     // request is dropped; measure again once the new bar is composed.
@@ -523,6 +535,19 @@ class NativeUIXStackScreenManager :
   override fun setScreenTitle(view: NativeUIXStackScreenView, value: String?) {
     view.title = value.orEmpty()
   }
+
+  override fun setSearchEnabled(view: NativeUIXStackScreenView, value: Boolean) {
+    view.searchEnabled = value
+  }
+
+  override fun setSearchPlaceholder(view: NativeUIXStackScreenView, value: String?) {
+    view.searchPlaceholder = value.orEmpty()
+  }
+
+  // iOS only: placement and hiding of the search bar while scrolling.
+  override fun setSearchPlacement(view: NativeUIXStackScreenView, value: String?) {}
+
+  override fun setSearchHidesWhenScrolling(view: NativeUIXStackScreenView, value: Boolean) {}
 
   override fun setHidesTabBar(view: NativeUIXStackScreenView, value: Boolean) {
     view.hidesTabBar = value

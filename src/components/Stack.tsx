@@ -23,6 +23,21 @@ export type StackHeaderAction = {
   onPress: () => void;
 };
 
+export type StackHeaderSearch = {
+  placeholder?: string;
+  onChangeText?: (text: string) => void;
+  onSubmit?: (text: string) => void;
+  /** The search was dismissed; its text is cleared. */
+  onCancel?: () => void;
+  /**
+   * iOS placement (`integrated` and `integratedButton` need iOS 26; earlier
+   * versions use `stacked`). Android shows a search app bar in every case.
+   */
+  placement?: 'automatic' | 'integrated' | 'integratedButton' | 'stacked';
+  /** iOS: a stacked search bar hides while scrolling down. Defaults to true. */
+  hidesWhenScrolling?: boolean;
+};
+
 export type StackHeader = {
   title: string;
   /** Large collapses with the screen's scroll view; compact stays fixed. */
@@ -30,6 +45,12 @@ export type StackHeader = {
   /** iOS 26+ subtitle (prompt on older iOS); Android app bar subtitle. */
   subtitle?: string;
   trailingAction?: StackHeaderAction;
+  /**
+   * A native search field: UISearchController in the navigation bar on iOS,
+   * a Material 3 search app bar on Android. The field owns its text and
+   * reports it.
+   */
+  search?: StackHeaderSearch;
 };
 
 export type StackNavigation = {
@@ -55,7 +76,8 @@ export type StackScreenDefinition = {
    */
   hidesTabBar?: boolean;
   /** `null` shows no header, for a route that hosts its own (Tabs with Stacks). */
-  header: StackHeader | null | ((route: StackRoute, navigation: StackNavigation) => StackHeader | null);
+  header:
+    StackHeader | null | ((route: StackRoute, navigation: StackNavigation) => StackHeader | null);
 };
 
 export type StackProps = {
@@ -66,6 +88,12 @@ export type StackProps = {
 
 const NavigationContext = React.createContext<StackNavigation | null>(null);
 const RouteContext = React.createContext<StackRoute | null>(null);
+const SearchTextContext = React.createContext('');
+
+/** Text in this route's header search field; empty when there is none. */
+export function useStackSearchText(): string {
+  return React.useContext(SearchTextContext);
+}
 
 /** Navigation of the Stack this component renders in. */
 export function useStackNavigation(): StackNavigation {
@@ -109,6 +137,7 @@ export function Stack({screens, initialRoute, style}: StackProps): React.JSX.Ele
   ]);
 
   const parent = React.useContext(NavigationContext) ?? undefined;
+  const [searchTexts, setSearchTexts] = React.useState<Record<string, string>>({});
   const navigation = React.useMemo<StackNavigation>(
     () => ({
       parent,
@@ -162,11 +191,31 @@ export function Stack({screens, initialRoute, style}: StackProps): React.JSX.Ele
                   header?.trailingAction?.onPress();
                 }
               }}
+              searchEnabled={header?.search != null}
+              searchPlaceholder={header?.search?.placeholder ?? ''}
+              searchPlacement={header?.search?.placement ?? 'automatic'}
+              searchHidesWhenScrolling={header?.search?.hidesWhenScrolling ?? true}
+              onSearch={event => {
+                const {type, text} = event.nativeEvent;
+                const search = header?.search;
+                if (type === 'change' || type === 'cancel') {
+                  setSearchTexts(current => ({...current, [route.key]: text}));
+                }
+                if (type === 'change') {
+                  search?.onChangeText?.(text);
+                } else if (type === 'submit') {
+                  search?.onSubmit?.(text);
+                } else if (type === 'cancel') {
+                  search?.onCancel?.();
+                }
+              }}
               collapsable={false}
               style={StyleSheet.absoluteFill}
             >
               <RouteContext.Provider value={route}>
-                <Component route={route} navigation={navigation} />
+                <SearchTextContext.Provider value={searchTexts[route.key] ?? ''}>
+                  <Component route={route} navigation={navigation} />
+                </SearchTextContext.Provider>
               </RouteContext.Provider>
             </NativeUIXStackScreen>
           );

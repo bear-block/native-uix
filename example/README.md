@@ -22,7 +22,7 @@ The app is native `Tabs` (Components, Navigation, Settings), each tab with its o
 
 **Settings tab**: **Airplane mode** animates without the list reloading and disables **Network**; **Data roaming** returns to off (rejected); action rows push a detail route.
 
-**Scrolling list**: 80 sectioned rows; pressable rows push a detail route, informational rows do not respond.
+**Scrolling list**: a header search field filters the 80 sectioned rows; pressable rows push a detail route, informational rows do not respond.
 
 Toggle dark mode while the app runs: every screen, the header and the system bars follow it.
 
