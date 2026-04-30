@@ -85,13 +85,13 @@ class NativeUIXTabView(context: ThemedReactContext) : ReactViewGroup(context) {
 internal class NativeUIXTabsContent(
   context: Context,
   private val onSize: (Int, Int) -> Unit,
-  private val onScroll: (Int) -> Unit,
+  private val onScroll: (consumed: Int, unconsumed: Int) -> Unit,
 ) : ViewGroup(context) {
   override fun onStartNestedScroll(child: View, target: View, axes: Int): Boolean =
     axes and View.SCROLL_AXIS_VERTICAL != 0
 
   override fun onNestedScroll(target: View, dxConsumed: Int, dyConsumed: Int, dxUnconsumed: Int, dyUnconsumed: Int) {
-    if (dyConsumed != 0) onScroll(dyConsumed)
+    onScroll(dyConsumed, dyUnconsumed)
   }
 
   override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -120,7 +120,7 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
   internal val content = NativeUIXTabsContent(
     context,
     { w, h -> tabs.forEach { it.reportSize(w, h) } },
-    { dy -> scrolled(dy) },
+    { consumed, unconsumed -> scrolled(consumed, unconsumed) },
   )
 
   /** `onScrollDown`, `onScrollUp`, or anything else to keep the bar. */
@@ -134,10 +134,12 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
 
   // Material's hide-on-scroll: the bar slides away with scrolling in one
   // direction and comes back with the other.
-  private fun scrolled(dy: Int) {
+  // Hiding needs content that actually scrolled; showing follows any drag
+  // the other way, even at the edge of content that cannot scroll further.
+  private fun scrolled(consumed: Int, unconsumed: Int) {
     val hide = when (minimizeBehavior) {
-      "onScrollDown" -> dy > 0
-      "onScrollUp" -> dy < 0
+      "onScrollDown" -> if (consumed > 0) true else if (consumed + unconsumed < 0) false else return
+      "onScrollUp" -> if (consumed < 0) true else if (consumed + unconsumed > 0) false else return
       else -> return
     }
     if (hide != scrollHidden) {
@@ -239,6 +241,15 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
   }
 
   private var barHidden = false
+
+  /**
+   * Another route came on top: the bar shows again, as after navigation in
+   * Material and UIKit; a short route could not scroll it back.
+   */
+  internal fun routeChanged() {
+    scrollHidden = false
+    updateBar()
+  }
 
   /** Follows the route on top of the selected tab's Stack. */
   internal fun updateBar() {

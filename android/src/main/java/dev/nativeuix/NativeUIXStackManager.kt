@@ -464,8 +464,9 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     get() = shown?.let { it.headerSize == "large" && !it.searchEnabled && !it.headerHidden } == true
 
   private fun applyHeader(screen: NativeUIXStackScreenView) {
+    val routeChanged = shownForTabs !== screen
     shownForTabs = screen
-    enclosingTabs()?.updateBar()
+    enclosingTabs()?.let { if (routeChanged) it.routeChanged() else it.updateBar() }
     sizeContent()
     if (screen.headerHidden) {
       headerModel.value = null
