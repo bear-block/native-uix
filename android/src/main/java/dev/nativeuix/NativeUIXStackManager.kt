@@ -267,6 +267,9 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
       val offset = headerOffset()
       expandedHeader = (bottom - top) - offset
       content.translationY = (bottom - top).toFloat()
+      // A bar that does not collapse (compact, search) is the real limit of
+      // the routes' area.
+      if (!headerCollapses) sizeContent()
     }
     headerBridge.follow = {
       if (expandedHeader > 0f) content.translationY = expandedHeader + headerOffset()
@@ -286,8 +289,14 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
   private fun sizeContent() {
     val statusBar = ViewCompat.getRootWindowInsets(this)
       ?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
-    // A route without a header (one hosting Tabs) takes the whole stack.
-    val collapsed = if (shown?.headerHidden == true) 0 else (dp(64) + statusBar).toInt()
+    // A route without a header (one hosting Tabs) takes the whole stack; a
+    // collapsing bar leaves the area below its collapsed height; any other
+    // bar, its measured height.
+    val collapsed = when {
+      shown?.headerHidden == true -> 0
+      headerCollapses || header.height == 0 -> (dp(64) + statusBar).toInt()
+      else -> header.height
+    }
     val height = (this.height - collapsed).coerceAtLeast(0)
     if (content.layoutParams.height != height) {
       content.layoutParams = content.layoutParams.apply { this.height = height }
@@ -453,6 +462,9 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
   internal fun headerChanged(screen: NativeUIXStackScreenView) {
     if (screen === shown) applyHeader(screen)
   }
+
+  private val headerCollapses: Boolean
+    get() = shown?.let { it.headerSize == "large" && !it.searchEnabled && !it.headerHidden } == true
 
   private fun applyHeader(screen: NativeUIXStackScreenView) {
     shownForTabs = screen

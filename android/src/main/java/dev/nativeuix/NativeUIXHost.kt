@@ -141,6 +141,17 @@ open class NativeUIXHostLayout(context: Context) : FrameLayout(context) {
     requestLayout()
   }
 
+  // Fabric measures a view with its exact frame, possibly before it is
+  // attached; Compose children cannot measure without a window yet, and the
+  // pass after attach measures them.
+  override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+    if (!isAttachedToWindow) {
+      setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
+      return
+    }
+    super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+  }
+
   override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
     super.onLayout(changed, left, top, right, bottom)
     post { reportIntrinsicSize() }

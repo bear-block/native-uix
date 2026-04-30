@@ -90,7 +90,9 @@ internal fun StackHeader(
     }
     val scope = rememberCoroutineScope()
     SideEffect {
-      bridge.behavior = behavior
+      // The search app bar does not collapse; scrolling must not move the
+      // routes for a bar that is not shown.
+      bridge.behavior = if (model.search) null else behavior
       bridge.scope = scope
     }
     val navigationIcon: @Composable () -> Unit = {

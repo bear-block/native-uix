@@ -74,3 +74,7 @@ For simulator automation, `-NativeUIXInitialTab scrolling` opens this scenario d
 - Scroll across sections: the section title sticks below the app bar. Switch away and return to check retained position.
 
 Search, hero imagery, icon actions, arbitrary React content, and hide-on-scroll are deferred.
+
+## Troubleshooting
+
+After a new native component is added to the library, delete `android/app/build/generated/autolinking` before building Android. Gradle regenerates the autolinking registry only when a lockfile changes, so a stale registry leaves new components on the default shadow node: their native sizes never reach React (lists end under the navigation bar, screens ignore the app bar).
