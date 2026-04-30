@@ -172,10 +172,7 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
 
   private fun sizeContent(barHeight: Int) {
     val height = (this.height - barHeight).coerceAtLeast(0)
-    if (content.layoutParams.height != height) {
-      content.layoutParams = content.layoutParams.apply { this.height = height }
-      requestLayout()
-    }
+    content.resizeHeight(height)
   }
 
   override fun onNightModeChanged() {

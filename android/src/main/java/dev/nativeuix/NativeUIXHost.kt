@@ -57,6 +57,24 @@ internal fun StateWrapper?.reportContainerSize(view: View, widthPx: Int, heightP
   )
 }
 
+/**
+ * Resizes a container's content area at once. A layout request made while
+ * the host measures is dropped (see NativeUIXHostLayout.requestLayout), and
+ * scrolling resizes these areas at any moment; the area measures nothing but
+ * snapshots, so laying it out directly is cheap and keeps its size exact.
+ */
+internal fun View.resizeHeight(height: Int) {
+  if (layoutParams.height == height && this.height == height) return
+  layoutParams = layoutParams.apply { this.height = height }
+  if (width > 0) {
+    measure(
+      View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+      View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
+    )
+    layout(left, top, right, top + height)
+  }
+}
+
 internal class NativeUIXEvent(
   surfaceId: Int,
   viewId: Int,

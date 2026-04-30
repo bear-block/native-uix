@@ -298,10 +298,7 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
       else -> header.height
     }
     val height = (this.height - collapsed).coerceAtLeast(0)
-    if (content.layoutParams.height != height) {
-      content.layoutParams = content.layoutParams.apply { this.height = height }
-      requestLayout()
-    }
+    content.resizeHeight(height)
   }
 
   override fun onNightModeChanged() {
