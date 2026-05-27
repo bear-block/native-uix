@@ -27,6 +27,10 @@ Native UIX will own native navigation alongside its UI components, starting with
 
 MIT. See [LICENSE](LICENSE).
 
+## iOS 27 and the scene lifecycle
+
+iOS 27 terminates apps that do not adopt the UIKit scene lifecycle (`UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption`). The React Native 0.87.1 app template does not adopt it yet, so a new app crashes at launch on iOS 27 with or without Native UIX. The example app shows the change: a `SceneDelegate` and `UIApplicationSceneManifest` in `Info.plist`.
+
 ## Documentation
 
 - [Project scope](docs/PROJECT-SCOPE.md)
