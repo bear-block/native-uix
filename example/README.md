@@ -4,7 +4,7 @@ This React Native CLI app is the interactive acceptance surface for Native UIX. 
 
 ## What to check
 
-The app is native `Tabs` (Components, Navigation, Settings), each tab with its own `Stack`. Switching tabs keeps each tab's routes; on Android, back on another tab returns to Components. **Home** lists the component demos; each row pushes a route. **Over the tab bar** is a `hidesTabBar` route: the tab bar slides away with the push. Tapping the selected tab returns its Stack to the first route. Scrolling down minimizes the tab bar (iOS 26+) or slides the navigation bar away (Android); scrolling up brings it back. Go back with the back button, an edge swipe (iOS), or system back and predictive back (Android 14+). Routes you come back to keep their state and scroll position.
+The app is native `Tabs` (Components, Navigation, Settings, and a Search tab), each tab with its own `Stack`. Switching tabs keeps each tab's routes; on Android, back on another tab returns to Components. **Home** lists the component demos; each row pushes a route. **Over the tab bar** is a `hidesTabBar` route: the tab bar slides away with the push. Tapping the selected tab returns its Stack to the first route. Scrolling down minimizes the tab bar (iOS 26+) or slides the navigation bar away (Android); scrolling up brings it back. Go back with the back button, an edge swipe (iOS), or system back and predictive back (Android 14+). Routes you come back to keep their state and scroll position.
 
 **Navigation**
 

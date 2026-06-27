@@ -15,9 +15,6 @@ static NSString *RNUXTabString(const std::string &value)
 @implementation RNUXTabComponentView {
   UIViewController *_controller;
   RNUXStackComponentView *_stack;
-  NSString *_title;
-  UIImage *_image;
-  NSString *_badge;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -77,6 +74,18 @@ static NSString *RNUXTabString(const std::string &value)
   item.title = _title;
   item.image = _image;
   item.badgeValue = _badge;
+  if (@available(iOS 18.0, *)) {
+    UITab *tab = self.uiTab;
+    if (tab != nil) {
+      if (_title.length > 0) {
+        tab.title = _title;
+      }
+      if (_image != nil) {
+        tab.image = _image;
+      }
+      tab.badgeValue = _badge;
+    }
+  }
 }
 
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
@@ -86,6 +95,7 @@ static NSString *RNUXTabString(const std::string &value)
   _title = RNUXTabString(next.title);
   _image = next.iosIcon.empty() ? nil : [UIImage systemImageNamed:RNUXTabString(next.iosIcon)];
   _badge = next.badge.empty() ? nil : RNUXTabString(next.badge);
+  _searchRole = next.tabRole == NativeUIXTabTabRole::Search;
   [self applyItem];
   [super updateProps:props oldProps:oldProps];
 }
@@ -94,6 +104,7 @@ static NSString *RNUXTabString(const std::string &value)
 {
   [super prepareForRecycle];
   _stack = nil;
+  self.uiTab = nil;
   if (self.superview == _controller.view) {
     [self removeFromSuperview];
   }

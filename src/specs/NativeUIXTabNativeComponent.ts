@@ -1,4 +1,4 @@
-import type {HostComponent, ViewProps} from 'react-native';
+import type {CodegenTypes, HostComponent, ViewProps} from 'react-native';
 import {codegenNativeComponent} from 'react-native';
 
 export interface NativeUIXTabProps extends ViewProps {
@@ -9,6 +9,7 @@ export interface NativeUIXTabProps extends ViewProps {
   /** Material icon name (Home, Settings, …) or an app drawable resource name. */
   androidIcon?: string;
   badge?: string;
+  tabRole?: CodegenTypes.WithDefault<'default' | 'search', 'default'>;
 }
 
 export default codegenNativeComponent<NativeUIXTabProps>(

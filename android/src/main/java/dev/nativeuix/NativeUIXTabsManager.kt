@@ -78,7 +78,10 @@ class NativeUIXTabView(context: ThemedReactContext) : ReactViewGroup(context) {
 
   internal fun reportSize(widthPx: Int, heightPx: Int) = stateWrapper.reportContainerSize(this, widthPx, heightPx)
 
-  internal fun model() = TabItemModel(tabId, title, icon, badge)
+  var searchRole = false
+
+  // A search tab without an icon of its own shows the Material search icon.
+  internal fun model() = TabItemModel(tabId, title, icon.ifEmpty { if (searchRole) "Search" else "" }, badge)
 }
 
 /** The area above the navigation bar. Fabric positions tabs inside it. */
@@ -419,6 +422,10 @@ class NativeUIXTabManager :
 
   override fun setAndroidIcon(view: NativeUIXTabView, value: String?) {
     view.icon = value.orEmpty()
+  }
+
+  override fun setTabRole(view: NativeUIXTabView, value: String?) {
+    view.searchRole = value == "search"
   }
 
   override fun setBadge(view: NativeUIXTabView, value: String?) {

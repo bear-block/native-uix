@@ -21,6 +21,9 @@ using namespace facebook::react;
   UITabBarController *_tabBar;
   NSMutableArray<RNUXTabComponentView *> *_tabs;
   NSString *_selectedId;
+  // Set while this view changes the tab bar itself; UIKit reports those
+  // changes as selections too, which are not the user's.
+  BOOL _applying;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -66,6 +69,7 @@ using namespace facebook::react;
 {
   const auto &next = *std::static_pointer_cast<NativeUIXTabsProps const>(props);
   _selectedId = [NSString stringWithUTF8String:next.selectedId.c_str()];
+  _applying = YES;
   if (@available(iOS 26.0, *)) {
     switch (next.minimizeBehavior) {
       case NativeUIXTabsMinimizeBehavior::Never:
@@ -83,6 +87,7 @@ using namespace facebook::react;
   }
   [super updateProps:props oldProps:oldProps];
   [self applySelection];
+  _applying = NO;
 }
 
 - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
@@ -100,38 +105,122 @@ using namespace facebook::react;
 - (void)mountingTransactionDidMount:(MountingTransaction const &)transaction
                withSurfaceTelemetry:(SurfaceTelemetry const &)surfaceTelemetry
 {
-  NSMutableArray<UIViewController *> *controllers = [NSMutableArray new];
-  for (RNUXTabComponentView *tab in _tabs) {
-    [controllers addObject:tab.controller];
-  }
-  if (![controllers isEqualToArray:_tabBar.viewControllers ?: @[]]) {
-    [_tabBar setViewControllers:controllers animated:NO];
+  _applying = YES;
+  if (@available(iOS 18.0, *)) {
+    [self applyTabs];
+  } else {
+    NSMutableArray<UIViewController *> *controllers = [NSMutableArray new];
+    for (RNUXTabComponentView *tab in _tabs) {
+      [controllers addObject:tab.controller];
+    }
+    if (![controllers isEqualToArray:_tabBar.viewControllers ?: @[]]) {
+      [_tabBar setViewControllers:controllers animated:NO];
+    }
   }
   [self applySelection];
+  _applying = NO;
+}
+
+// iOS 18+: tabs are UITab objects, which add the search tab and keep each
+// tab's identity; a tab is rebuilt only when its controller changes.
+- (void)applyTabs API_AVAILABLE(ios(18.0))
+{
+  NSMutableArray<UITab *> *uiTabs = [NSMutableArray new];
+  for (RNUXTabComponentView *tab in _tabs) {
+    UIViewController *controller = tab.controller;
+    UITab *uiTab = tab.uiTab;
+    BOOL isSearch = [uiTab isKindOfClass:UISearchTab.class];
+    if (uiTab == nil || tab.uiTabController != controller || isSearch != tab.searchRole) {
+      UIViewController * (^provider)(UITab *) = ^UIViewController *(UITab *unused) {
+        return controller;
+      };
+      if (tab.searchRole) {
+        UISearchTab *search = [[UISearchTab alloc] initWithViewControllerProvider:provider];
+        if (@available(iOS 26.0, *)) {
+          search.automaticallyActivatesSearch = YES;
+        }
+        uiTab = search;
+      } else {
+        // A lazy tab's controller changes once its Stack mounts; UIKit keeps
+        // the controller of a tab with the same identifier, so a rebuilt tab
+        // gets a new one.
+        NSString *identifier = tab.uiTab == nil
+            ? tab.tabId
+            : [NSString stringWithFormat:@"%@#%p", tab.tabId, controller];
+        uiTab = [[UITab alloc] initWithTitle:tab.title ?: @""
+                                       image:tab.image
+                                  identifier:identifier
+                      viewControllerProvider:provider];
+      }
+      tab.uiTab = uiTab;
+      tab.uiTabController = controller;
+      if (tab.title.length > 0) {
+        uiTab.title = tab.title;
+      }
+      if (tab.image != nil) {
+        uiTab.image = tab.image;
+      }
+      uiTab.badgeValue = tab.badge;
+    }
+    [uiTabs addObject:uiTab];
+  }
+  if (![uiTabs isEqualToArray:_tabBar.tabs]) {
+    [_tabBar setTabs:uiTabs animated:NO];
+  }
 }
 
 - (void)applySelection
 {
   for (RNUXTabComponentView *tab in _tabs) {
-    if ([tab.tabId isEqualToString:_selectedId] && _tabBar.selectedViewController != tab.controller &&
-        [_tabBar.viewControllers containsObject:tab.controller]) {
+    if (![tab.tabId isEqualToString:_selectedId]) {
+      continue;
+    }
+    if (@available(iOS 18.0, *)) {
+      UITab *uiTab = tab.uiTab;
+      if (uiTab != nil && _tabBar.selectedTab != uiTab && [_tabBar.tabs containsObject:uiTab]) {
+        _tabBar.selectedTab = uiTab;
+      }
+    } else if (_tabBar.selectedViewController != tab.controller &&
+               [_tabBar.viewControllers containsObject:tab.controller]) {
       _tabBar.selectedViewController = tab.controller;
     }
+  }
+}
+
+- (void)reportSelection:(RNUXTabComponentView *)tab
+{
+  if (_applying || [tab.tabId isEqualToString:_selectedId]) {
+    return;
+  }
+  _selectedId = tab.tabId;
+  auto emitter = std::static_pointer_cast<NativeUIXTabsEventEmitter const>(_eventEmitter);
+  if (emitter) {
+    emitter->onTabChange({std::string(tab.tabId.UTF8String)});
   }
 }
 
 #pragma mark - UITabBarControllerDelegate
 
 - (void)tabBarController:(UITabBarController *)tabBarController
-    didSelectViewController:(UIViewController *)viewController
+    didSelectTab:(UITab *)selectedTab
+     previousTab:(UITab *)previousTab API_AVAILABLE(ios(18.0))
 {
   for (RNUXTabComponentView *tab in _tabs) {
+    if (tab.uiTab == selectedTab) {
+      [self reportSelection:tab];
+    }
+  }
+}
+
+- (void)tabBarController:(UITabBarController *)tabBarController
+    didSelectViewController:(UIViewController *)viewController
+{
+  if (@available(iOS 18.0, *)) {
+    return; // Reported by didSelectTab:.
+  }
+  for (RNUXTabComponentView *tab in _tabs) {
     if (tab.controller == viewController) {
-      _selectedId = tab.tabId;
-      auto emitter = std::static_pointer_cast<NativeUIXTabsEventEmitter const>(_eventEmitter);
-      if (emitter) {
-        emitter->onTabChange({std::string(tab.tabId.UTF8String)});
-      }
+      [self reportSelection:tab];
     }
   }
 }

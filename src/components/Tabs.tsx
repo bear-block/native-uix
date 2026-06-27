@@ -20,6 +20,12 @@ export type TabProps = {
   icon?: TabIcon;
   /** Badge text, such as a count; omitted or empty shows no badge. */
   badge?: string;
+  /**
+   * `search`: iOS 18+ shows the system search tab (on iOS 26, a separate
+   * button at the trailing end whose field expands in the tab bar, activating
+   * the search field of the tab's Stack root). Android shows a regular tab.
+   */
+  role?: 'default' | 'search';
   children?: React.ReactNode;
 };
 
@@ -95,6 +101,7 @@ export function Tabs({
           iosIcon={tab.props.icon?.ios ?? ''}
           androidIcon={tab.props.icon?.android ?? ''}
           badge={tab.props.badge ?? ''}
+          tabRole={tab.props.role ?? 'default'}
           collapsable={false}
           style={StyleSheet.absoluteFill}
         >

@@ -176,6 +176,9 @@ export default function App(): React.JSX.Element {
       >
         <Stack screens={screens} initialRoute={{ name: 'settings' }} />
       </Tab>
+      <Tab id="search" title="Search" role="search">
+        <Stack screens={screens} initialRoute={{ name: 'list' }} />
+      </Tab>
     </Tabs>
   );
 }
