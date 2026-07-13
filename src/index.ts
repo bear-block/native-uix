@@ -37,3 +37,5 @@ export type {
 } from './components/Stack';
 export {Tab, Tabs} from './components/Tabs';
 export type {TabIcon, TabProps, TabsProps} from './components/Tabs';
+export {Sheet} from './components/Sheet';
+export type {SheetDetent, SheetProps} from './components/Sheet';

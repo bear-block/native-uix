@@ -47,6 +47,6 @@ If predictive back or another acceptance item is unsupported by a candidate back
 
 ## Subsequent milestones
 
-App-level tabs exist as experimental `Tabs` (UITabBarController; Material navigation bar). Modal presentation, deep-link resolution and process restoration follow. Their contracts must coordinate with the same navigation authority. Search, hero headers, icon actions and directional header motion remain independent component work; navigation ownership does not make them implemented.
+App-level tabs exist as experimental `Tabs` (UITabBarController; Material navigation bar), and sheets as experimental `Sheet` (UISheetPresentationController; Material modal bottom sheet). Full-screen modal routes, deep-link resolution and process restoration follow. Their contracts must coordinate with the same navigation authority. Search, hero headers, icon actions and directional header motion remain independent component work; navigation ownership does not make them implemented.
 
 See [architecture](../ARCHITECTURE.md), [scope](PROJECT-SCOPE.md), and the [experimental component API](API-PROPOSAL.md).

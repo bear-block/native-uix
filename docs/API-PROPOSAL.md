@@ -123,6 +123,26 @@ Use `StackScrollView` (or `ScrollingList`, `SettingsScreen`) as a screen's scrol
 
 A tab's content mounts the first time it is selected (`lazy`, default true) and then stays mounted, so each tab's Stack keeps its routes. Pass `selectedTab` to control the selection, or `initialTab` to let the bar keep it; `onTabChange` reports a tab the user selected after the bar has switched. When a tab's first child is a Stack, iOS uses the Stack's `UINavigationController` as the tab's view controller, as UIKit expects. On iOS 18+ tabs are `UITab` objects. Not implemented yet: bottom accessory, sidebar and navigation rail (see the roadmap in the internal gap analysis).
 
+## Experimental Sheet
+
+```tsx
+const [open, setOpen] = React.useState(false);
+
+<Sheet visible={open} detents={['medium', 'large']} onDismiss={() => setOpen(false)}>
+  <MyContent />
+</Sheet>
+```
+
+| | iOS | Android |
+|---|---|---|
+| Presentation | `UISheetPresentationController` (page sheet) | Material 3 modal bottom sheet (`BottomSheetBehavior`) in React Native's `Modal` window |
+| `detents` | `medium`, `large`; the first is where it opens | Half and full height, below the status bar |
+| `grabber` | `prefersGrabberVisible` | `BottomSheetDragHandleView` |
+| `dismissible: false` | `modalInPresentation` | Cannot be dragged away; scrim taps and back are ignored |
+| Closing | Drag down, or `visible={false}` | Drag down, scrim tap, back, or `visible={false}` |
+
+Closing always runs the native animation first and then calls `onDismiss` once; set `visible` to false there. `onDetentChange` reports the height the user settled on. The content is laid out at the size of the presented sheet.
+
 ## Experimental ScrollingList
 
 ```tsx

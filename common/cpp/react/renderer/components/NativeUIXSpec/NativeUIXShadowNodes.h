@@ -18,6 +18,7 @@ JSI_EXPORT extern const char NativeUIXSwitchComponentName[];
 JSI_EXPORT extern const char NativeUIXSegmentedControlComponentName[];
 JSI_EXPORT extern const char NativeUIXStackScreenComponentName[];
 JSI_EXPORT extern const char NativeUIXTabComponentName[];
+JSI_EXPORT extern const char NativeUIXSheetContentComponentName[];
 
 // Hug: natural width, capped by the parent. Fill: take the available width.
 enum class NativeUIXWidthMode { Hug, Fill };
@@ -143,5 +144,13 @@ using NativeUIXStackScreenComponentDescriptor =
 using NativeUIXTabShadowNode =
     NativeUIXContainerShadowNode<NativeUIXTabComponentName, NativeUIXTabProps, ViewEventEmitter>;
 using NativeUIXTabComponentDescriptor = NativeUIXContainerComponentDescriptor<NativeUIXTabShadowNode>;
+
+// A sheet's content area, laid out at the size of the presented sheet.
+using NativeUIXSheetContentShadowNode = NativeUIXContainerShadowNode<
+    NativeUIXSheetContentComponentName,
+    NativeUIXSheetContentProps,
+    ViewEventEmitter>;
+using NativeUIXSheetContentComponentDescriptor =
+    NativeUIXContainerComponentDescriptor<NativeUIXSheetContentShadowNode>;
 
 } // namespace facebook::react

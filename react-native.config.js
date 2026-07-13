@@ -18,6 +18,8 @@ export default {
           'NativeUIXStackScreenComponentDescriptor',
           'NativeUIXTabsComponentDescriptor',
           'NativeUIXTabComponentDescriptor',
+          'NativeUIXSheetComponentDescriptor',
+          'NativeUIXSheetContentComponentDescriptor',
         ],
         cmakeListsPath: 'src/main/jni/CMakeLists.txt',
       },

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {existsSync, readdirSync, readFileSync} from 'node:fs';
 
-const components = ['Button', 'Switch', 'SegmentedControl', 'Settings', 'TransitionView', 'TabContent', 'TabPage', 'ScrollingList', 'Stack', 'StackScreen', 'Tabs', 'Tab'];
+const components = ['Button', 'Switch', 'SegmentedControl', 'Settings', 'TransitionView', 'TabContent', 'TabPage', 'ScrollingList', 'Stack', 'StackScreen', 'Tabs', 'Tab', 'Sheet', 'SheetContent'];
 
 const androidDir = 'android/src/main/java/dev/nativeuix';
 const androidSources = readdirSync(androidDir)

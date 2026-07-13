@@ -2,6 +2,7 @@ import * as React from 'react';
 import {
   Button,
   ScrollingList,
+  Sheet,
   SegmentedControl,
   SettingsScreen,
   Stack,
@@ -78,6 +79,13 @@ const HOME_ITEMS: ScrollingItem[] = [
     action: true,
   },
   {
+    id: 'sheet',
+    section: 'Navigation',
+    title: 'Sheet',
+    subtitle: 'Native sheet with medium and large heights',
+    action: true,
+  },
+  {
     id: 'cover',
     section: 'Navigation',
     title: 'Over the tab bar',
@@ -143,6 +151,10 @@ const screens: Record<string, StackScreenDefinition> = {
     }),
   },
   navigation: { component: NavigationScreen, header: navigationHeader },
+  sheet: {
+    component: SheetScreen,
+    header: { title: 'Sheet', size: 'compact' },
+  },
   cover: {
     component: ItemScreen,
     header: { title: 'Over the tab bar', size: 'compact' },
@@ -614,6 +626,101 @@ function NavigationScreen({ route, navigation }: StackScreenProps) {
         onPress={navigation.popToRoot}
       />
     </StackScrollView>
+  );
+}
+
+function SheetScreen() {
+  const colors = useColors();
+  const [open, setOpen] = React.useState<'none' | 'resizable' | 'locked'>(
+    'none',
+  );
+  const [log, record] = useLog();
+  // Automated checks on iOS: `-NativeUIXRoute sheet -NativeUIXSheet 1` opens
+  // the resizable sheet after 1.5 s.
+  React.useEffect(() => {
+    if (Platform.OS !== 'ios' || !Settings.get('NativeUIXSheet')) {
+      return;
+    }
+    const timer = setTimeout(() => setOpen('resizable'), 1500);
+    return () => clearTimeout(timer);
+  }, []);
+  return (
+    <StackScrollView contentContainerStyle={styles.scroll}>
+      <Text style={[styles.body, { color: colors.secondary }]}>
+        The platform runs the sheet: drag between heights, drag down or tap
+        outside to close (iOS swipe, Android scrim and back).
+      </Text>
+      <Button
+        label="Medium and large"
+        variant="primary"
+        style={styles.fullWidth}
+        onPress={() => setOpen('resizable')}
+      />
+      <Button
+        label="Large, closes only with its button"
+        style={styles.fullWidth}
+        onPress={() => setOpen('locked')}
+      />
+      <EventLog colors={colors} log={log} />
+      <Sheet
+        visible={open === 'resizable'}
+        detents={['medium', 'large']}
+        onDetentChange={detent => record(`Detent: ${detent}`)}
+        onDismiss={() => {
+          setOpen('none');
+          record('Dismissed');
+        }}
+      >
+        <SheetContent colors={colors} title="Resizable sheet" />
+      </Sheet>
+      <Sheet
+        visible={open === 'locked'}
+        dismissible={false}
+        onDismiss={() => {
+          setOpen('none');
+          record('Closed with its button');
+        }}
+      >
+        <SheetContent
+          colors={colors}
+          title="Locked sheet"
+          onClose={() => setOpen('none')}
+        />
+      </Sheet>
+    </StackScrollView>
+  );
+}
+
+function SheetContent({
+  colors,
+  title,
+  onClose,
+}: {
+  colors: Colors;
+  title: string;
+  onClose?: () => void;
+}) {
+  const [count, setCount] = React.useState(0);
+  return (
+    <View style={[styles.scroll, styles.flex]}>
+      <Text style={[styles.pageTitle, { color: colors.text }]}>{title}</Text>
+      <Text style={[styles.body, { color: colors.secondary }]}>
+        React content inside a native sheet.
+      </Text>
+      <Button
+        label={`Count (${count})`}
+        style={styles.hug}
+        onPress={() => setCount(c => c + 1)}
+      />
+      {onClose ? (
+        <Button
+          label="Close"
+          variant="primary"
+          style={styles.fullWidth}
+          onPress={onClose}
+        />
+      ) : null}
+    </View>
   );
 }
 

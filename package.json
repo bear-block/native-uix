@@ -70,7 +70,9 @@
         "NativeUIXStack": "RNUXStackComponentView",
         "NativeUIXStackScreen": "RNUXStackScreenComponentView",
         "NativeUIXTabs": "RNUXTabsComponentView",
-        "NativeUIXTab": "RNUXTabComponentView"
+        "NativeUIXTab": "RNUXTabComponentView",
+        "NativeUIXSheet": "RNUXSheetComponentView",
+        "NativeUIXSheetContent": "RNUXSheetContentComponentView"
       }
     }
   }

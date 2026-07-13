@@ -22,6 +22,8 @@ The app is native `Tabs` (Components, Navigation, Settings, and a Search tab), e
 
 **Settings tab**: **Airplane mode** animates without the list reloading and disables **Network**; **Data roaming** returns to off (rejected); action rows push a detail route.
 
+**Sheet**: open the resizable sheet and drag between medium and large; drag down, tap outside or press back to close. The locked sheet closes only with its button.
+
 **Scrolling list**: a header search field filters the 80 sectioned rows; pressable rows push a detail route, informational rows do not respond.
 
 Toggle dark mode while the app runs: every screen, the header and the system bars follow it.
@@ -77,4 +79,4 @@ Search, hero imagery, icon actions, arbitrary React content, and hide-on-scroll 
 
 ## Troubleshooting
 
-After a new native component is added to the library, delete `android/app/build/generated/autolinking` before building Android. Gradle regenerates the autolinking registry only when a lockfile changes, so a stale registry leaves new components on the default shadow node: their native sizes never reach React (lists end under the navigation bar, screens ignore the app bar).
+After a new native component is added to the library, delete `android/build/generated/autolinking` (the cached configuration) and `android/app/build/generated/autolinking` before building Android. Gradle regenerates the autolinking registry only when a lockfile changes, so a stale registry leaves new components on the default shadow node: their native sizes never reach React (lists end under the navigation bar, screens ignore the app bar).

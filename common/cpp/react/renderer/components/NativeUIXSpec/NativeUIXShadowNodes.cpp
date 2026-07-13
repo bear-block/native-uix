@@ -7,5 +7,6 @@ extern const char NativeUIXSwitchComponentName[] = "NativeUIXSwitch";
 extern const char NativeUIXSegmentedControlComponentName[] = "NativeUIXSegmentedControl";
 extern const char NativeUIXStackScreenComponentName[] = "NativeUIXStackScreen";
 extern const char NativeUIXTabComponentName[] = "NativeUIXTab";
+extern const char NativeUIXSheetContentComponentName[] = "NativeUIXSheetContent";
 
 } // namespace facebook::react
