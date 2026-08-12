@@ -96,6 +96,8 @@ class NativeUIXSheetView(context: ThemedReactContext) : NativeUIXHostLayout(cont
         when (newState) {
           BottomSheetBehavior.STATE_HIDDEN -> if (shown) reportDismiss()
           BottomSheetBehavior.STATE_HALF_EXPANDED -> reportDetent("medium")
+          // Collapsed is the lowest detent (a sheet that cannot be dismissed).
+          BottomSheetBehavior.STATE_COLLAPSED -> reportDetent(if ("medium" in detents) "medium" else "large")
           BottomSheetBehavior.STATE_EXPANDED -> reportDetent("large")
         }
       }
@@ -115,14 +117,21 @@ class NativeUIXSheetView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     val statusBar = ViewCompat.getRootWindowInsets(this)?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
     if (behavior.expandedOffset != statusBar) behavior.expandedOffset = statusBar
     super.onLayout(changed, left, top, right, bottom)
+    // The collapsed height is the lowest detent: a sheet that cannot hide
+    // stops there instead of at a peek near the bottom edge.
+    val height = coordinator.height
+    if (height > 0) {
+      val lowest = if ("medium" in detents) (height * behavior.halfExpandedRatio).toInt() else height - statusBar
+      if (behavior.peekHeight != lowest) behavior.peekHeight = lowest
+    }
     if (open && !shown && isLaidOut) post { show() }
   }
 
   fun setDetents(value: ReadableArray?) {
     val next = (0 until (value?.size() ?: 0)).mapNotNull { value?.getString(it) }.filter { it == "medium" || it == "large" }
     detents = next.ifEmpty { listOf("large") }
-    behavior.skipCollapsed = true
     behavior.isFitToContents = false
+    requestLayout()
   }
 
   fun setDismissible(value: Boolean) {
@@ -130,6 +139,8 @@ class NativeUIXSheetView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     // Not dismissible: it cannot be dragged away; closing from React still
     // makes it hideable first.
     behavior.isHideable = value
+    // Dismissible: dragging down past the lowest detent hides the sheet.
+    behavior.skipCollapsed = value
   }
 
   fun setGrabber(value: Boolean) {
