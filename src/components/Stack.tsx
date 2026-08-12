@@ -67,8 +67,19 @@ export type StackScreenProps = {
   navigation: StackNavigation;
 };
 
+export type StackPresentation = 'push' | 'modal' | 'fullScreenModal';
+
 export type StackScreenDefinition = {
   component: React.ComponentType<StackScreenProps>;
+  /**
+   * How the route enters. `push` (default) slides in on the stack. `modal`
+   * starts a new stack presented over this one: a page sheet on iOS (swipe
+   * down closes it), a full-screen dialog on Android (slides up, covers the
+   * tab bar). `fullScreenModal` covers the whole screen on iOS and is the
+   * same as `modal` on Android. A modal route gets a close button where a
+   * back button would be; routes pushed after it stack inside the modal.
+   */
+  presentation?: StackPresentation;
   /**
    * Pushed inside a tab, the route covers the tab bar: on iOS the bar slides
    * away with the push (`hidesBottomBarWhenPushed`); on Android the
@@ -180,6 +191,7 @@ export function Stack({screens, initialRoute, style}: StackProps): React.JSX.Ele
               routeKey={route.key}
               headerHidden={header == null}
               hidesTabBar={definition.hidesTabBar ?? false}
+              presentation={definition.presentation ?? 'push'}
               screenTitle={header?.title ?? ''}
               headerSize={header?.size ?? 'large'}
               headerSubtitle={header?.subtitle ?? ''}

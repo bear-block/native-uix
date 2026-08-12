@@ -22,6 +22,8 @@ The app is native `Tabs` (Components, Navigation, Settings, and a Search tab), e
 
 **Settings tab**: **Airplane mode** animates without the list reloading and disables **Network**; **Data roaming** returns to off (rejected); action rows push a detail route.
 
+**Modal** and **Full-screen modal** present a `presentation: 'modal'` route (page sheet on iOS, full-screen dialog on Android) with a close button and Save; *Push inside the modal* stacks a route inside it. Close with the close button, Save, swiping the sheet down (iOS) or back (Android).
+
 **Sheet**: open the resizable sheet and drag between medium and large; drag down, tap outside or press back to close. The locked sheet closes only with its button.
 
 **Scrolling list**: a header search field filters the 80 sectioned rows; pressable rows push a detail route, informational rows do not respond.

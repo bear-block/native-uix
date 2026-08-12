@@ -31,6 +31,7 @@ using namespace facebook::react;
 - (void)viewDidLayoutSubviews
 {
   [super viewDidLayoutSubviews];
+  [self.screen updateSize];
   [self.screen settleContentScrollView];
   [self.screen updateTopInset];
 }
@@ -65,6 +66,7 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
   CFTimeInterval _settleUntil;
   NativeUIXStackScreenShadowNode::ConcreteState::Shared _state;
   CGFloat _topInset;
+  CGSize _size;
   NSString *_trailingId;
 }
 
@@ -90,7 +92,9 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
   [_controller.view addSubview:self];
   _routeKey = @"";
   _popped = NO;
+  _inNavigation = NO;
   _headerHidden = NO;
+  _closeHandler = nil;
 }
 
 - (UIViewController *)controller
@@ -103,6 +107,10 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
   const auto &next = *std::static_pointer_cast<NativeUIXStackScreenProps const>(props);
   _routeKey = RNUXString(next.routeKey);
   _hidesTabBar = next.hidesTabBar;
+  _presentsModally = next.presentation != NativeUIXStackScreenPresentation::Push;
+  _modalPresentationStyle = next.presentation == NativeUIXStackScreenPresentation::FullScreenModal
+      ? UIModalPresentationFullScreen
+      : UIModalPresentationPageSheet;
   _controller.hidesBottomBarWhenPushed = next.hidesTabBar;
   if (_headerHidden != next.headerHidden) {
     _headerHidden = next.headerHidden;
@@ -143,7 +151,23 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
 {
   [super updateState:state oldState:oldState];
   _state = std::static_pointer_cast<NativeUIXStackScreenShadowNode::ConcreteState const>(state);
+  [self updateSize];
   [self updateTopInset];
+}
+
+// The route fills its controller's view, which is smaller than the stack in
+// a page sheet.
+- (void)updateSize
+{
+  if (!_state || !_controller.isViewLoaded) {
+    return;
+  }
+  CGSize size = _controller.view.bounds.size;
+  if (size.width <= 0 || size.height <= 0 || CGSizeEqualToSize(size, _size)) {
+    return;
+  }
+  _size = size;
+  _state->updateState(NativeUIXStackScreenState{facebook::react::Size{size.width, size.height}, static_cast<Float>(_topInset)});
 }
 
 // Content under the navigation bar must stay clear of it unless a scroll view
@@ -172,7 +196,7 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
     return;
   }
   _topInset = inset;
-  _state->updateState(NativeUIXStackScreenState{_state->getData().size, static_cast<Float>(inset)});
+  _state->updateState(NativeUIXStackScreenState{facebook::react::Size{_size.width, _size.height}, static_cast<Float>(inset)});
 }
 
 - (void)applySearch:(const NativeUIXStackScreenProps &)props
@@ -242,6 +266,26 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
 - (void)searchBarCancelButtonClicked:(UISearchBar *)searchBar
 {
   [self emitSearch:@"cancel" text:@""];
+}
+
+- (void)setCloseHandler:(void (^)(void))closeHandler
+{
+  _closeHandler = [closeHandler copy];
+  UINavigationItem *item = _controller.navigationItem;
+  if (_closeHandler == nil) {
+    item.leftBarButtonItem = nil;
+  } else if (item.leftBarButtonItem == nil) {
+    item.leftBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemClose
+                                                                           target:self
+                                                                           action:@selector(closePressed)];
+  }
+}
+
+- (void)closePressed
+{
+  if (_closeHandler != nil) {
+    _closeHandler();
+  }
 }
 
 - (void)trailingPressed
@@ -323,6 +367,7 @@ static UIScrollView *RNUXFirstScrollView(UIView *view)
   }
   _state.reset();
   _topInset = 0;
+  _size = CGSizeZero;
   _searchController = nil;
   [self makeController];
 }

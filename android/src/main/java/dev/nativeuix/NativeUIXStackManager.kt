@@ -50,6 +50,9 @@ class NativeUIXStackScreenView(context: ThemedReactContext) : ReactViewGroup(con
   var headerSize = "large"
   var headerHidden = false
   var hidesTabBar = false
+  /** `push`, or `modal` / `fullScreenModal`: a full-screen dialog. */
+  var presentation = "push"
+  val presentsModally: Boolean get() = presentation != "push"
   var subtitle = ""
   var trailingId = ""
   var trailingLabel = ""
@@ -364,7 +367,9 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     if (target !== previous || snapshots.isNotEmpty()) {
       if (animate && target !== previous) {
         val forward = target?.added == true
-        val transition: Transition = MaterialSharedAxis(MaterialSharedAxis.X, forward)
+        // Into or out of a modal: the full-screen dialog rises and falls.
+        val axis = if (modalRoot(target) !== shownModalRoot) MaterialSharedAxis.Y else MaterialSharedAxis.X
+        val transition: Transition = MaterialSharedAxis(axis, forward)
         TransitionManager.beginDelayedTransition(content, transition)
       }
       snapshots.forEach { content.removeView(it) }
@@ -376,9 +381,22 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     }
     if (target !== previous) {
       shown = target
-      target?.let { applyHeader(it) }
+      target?.let {
+        shownModalRoot = modalRoot(it)
+        applyHeader(it)
+      }
     }
     updateBackCallback()
+  }
+
+  /** First route of the modal the route is in; null on the first stack. */
+  private var shownModalRoot: NativeUIXStackScreenView? = null
+
+  private fun modalRoot(screen: NativeUIXStackScreenView?): NativeUIXStackScreenView? {
+    val active = screens.filter { !it.popped }
+    val index = active.indexOf(screen)
+    if (index < 0) return null
+    return (index downTo 1).map { active[it] }.firstOrNull { it.presentsModally }
   }
 
   private fun below(screen: NativeUIXStackScreenView?): NativeUIXStackScreenView? {
@@ -391,7 +409,8 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     val top = shown ?: return
     val below = below(top) ?: return
     if (animated && isAttachedToWindow) {
-      val transition: Transition = MaterialSharedAxis(MaterialSharedAxis.X, false)
+      val axis = if (modalRoot(top) !== modalRoot(below)) MaterialSharedAxis.Y else MaterialSharedAxis.X
+      val transition: Transition = MaterialSharedAxis(axis, false)
       TransitionManager.beginDelayedTransition(content, transition)
     }
     top.popped = true
@@ -402,6 +421,7 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     top.alpha = 1f
     below.inactive = false
     shown = below
+    shownModalRoot = modalRoot(below)
     applyHeader(below)
     updateBackCallback()
     dispatchNativeEvent("topNativePop", Arguments.createMap().apply { putString("topKey", below.routeKey) })
@@ -409,8 +429,9 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
 
   private var shownForTabs: NativeUIXStackScreenView? = null
 
-  /** The route on top covers the tab bar. */
-  internal val coversTabBar: Boolean get() = shownForTabs?.hidesTabBar == true
+  /** The route on top covers the tab bar, as do modals (full-screen dialogs). */
+  internal val coversTabBar: Boolean
+    get() = shownForTabs?.let { it.hidesTabBar || modalRoot(it) != null } == true
 
   private fun enclosingTabs(): NativeUIXTabsView? {
     var parent = parent
@@ -428,7 +449,8 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     val top = shown ?: return
     if (root === top) return
     if (isAttachedToWindow) {
-      val transition: Transition = MaterialSharedAxis(MaterialSharedAxis.X, false)
+      val axis = if (modalRoot(top) != null) MaterialSharedAxis.Y else MaterialSharedAxis.X
+      val transition: Transition = MaterialSharedAxis(axis, false)
       TransitionManager.beginDelayedTransition(content, transition)
     }
     for (screen in active.drop(1)) {
@@ -437,6 +459,7 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     }
     root.inactive = false
     shown = root
+    shownModalRoot = null
     applyHeader(root)
     updateBackCallback()
     dispatchNativeEvent("topNativePop", Arguments.createMap().apply { putString("topKey", root.routeKey) })
@@ -482,6 +505,7 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
       trailingLabel = screen.trailingLabel,
       trailingDisabled = screen.trailingDisabled,
       canGoBack = below(screen) != null,
+      closes = modalRoot(screen) === screen,
       search = screen.searchEnabled,
       searchPlaceholder = screen.searchPlaceholder,
     )
@@ -561,6 +585,10 @@ class NativeUIXStackScreenManager :
 
   override fun setHidesTabBar(view: NativeUIXStackScreenView, value: Boolean) {
     view.hidesTabBar = value
+  }
+
+  override fun setPresentation(view: NativeUIXStackScreenView, value: String?) {
+    view.presentation = value ?: "push"
   }
 
   override fun setHeaderHidden(view: NativeUIXStackScreenView, value: Boolean) {

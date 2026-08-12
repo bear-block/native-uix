@@ -55,6 +55,7 @@ function Controls({navigation}: StackScreenProps) {
         <Text key={page}>Transition {page}</Text>
       </TransitionView>
       <Button label="Open list" onPress={() => navigation.push('list')} />
+      <Button label="Open modal" onPress={() => navigation.push('modal')} />
     </StackScrollView>
   );
 }
@@ -101,6 +102,7 @@ const screens: Record<string, StackScreenDefinition> = {
   controls: {component: Controls, header: {title: 'Consumer'}},
   list: {component: List, header: {title: 'List', search: {placeholder: 'Search'}}},
   detail: {component: Detail, header: {title: 'Detail', size: 'compact'}, hidesTabBar: true},
+  modal: {component: Detail, header: {title: 'Modal', size: 'compact'}, presentation: 'modal'},
   settings: {component: Settings, header: {title: 'Settings'}},
 };
 

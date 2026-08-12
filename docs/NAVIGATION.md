@@ -2,7 +2,7 @@
 
 Updated: 2026-10-05
 
-Status: Accepted product scope; Stack and app-level Tabs implemented as Experimental; modals, deep links and restoration not implemented.
+Status: Accepted product scope; Stack (with modal routes), app-level Tabs and Sheet implemented as Experimental; deep links and restoration not implemented.
 
 Native UIX will own navigation alongside its native controls and semantic screens. The goal is one library for an application's native UI and navigation experience. This is a product direction, not a claim that the current experimental package supplies a complete application framework. React Navigation is not the planned runtime dependency or routing backend. Native platform and AndroidX dependencies remain possible after compatibility and license verification.
 
@@ -47,6 +47,6 @@ If predictive back or another acceptance item is unsupported by a candidate back
 
 ## Subsequent milestones
 
-App-level tabs exist as experimental `Tabs` (UITabBarController; Material navigation bar), and sheets as experimental `Sheet` (UISheetPresentationController; Material modal bottom sheet). Full-screen modal routes, deep-link resolution and process restoration follow. Their contracts must coordinate with the same navigation authority. Search, hero headers, icon actions and directional header motion remain independent component work; navigation ownership does not make them implemented.
+App-level tabs exist as experimental `Tabs` (UITabBarController; Material navigation bar), and sheets as experimental `Sheet` (UISheetPresentationController; Material modal bottom sheet). Stack routes can be presented modally (`presentation: 'modal' | 'fullScreenModal'`). Deep-link resolution and process restoration follow. Their contracts must coordinate with the same navigation authority. Search, hero headers, icon actions and directional header motion remain independent component work; navigation ownership does not make them implemented.
 
 See [architecture](../ARCHITECTURE.md), [scope](PROJECT-SCOPE.md), and the [experimental component API](API-PROPOSAL.md).

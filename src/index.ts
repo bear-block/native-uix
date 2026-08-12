@@ -29,6 +29,7 @@ export type {
   StackHeader,
   StackHeaderAction,
   StackHeaderSearch,
+  StackPresentation,
   StackNavigation,
   StackProps,
   StackRoute,

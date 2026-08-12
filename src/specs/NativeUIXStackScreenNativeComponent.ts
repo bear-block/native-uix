@@ -9,6 +9,7 @@ export interface NativeUIXStackScreenProps extends ViewProps {
   screenTitle: string;
   headerHidden?: CodegenTypes.WithDefault<boolean, false>;
   hidesTabBar?: CodegenTypes.WithDefault<boolean, false>;
+  presentation?: CodegenTypes.WithDefault<'push' | 'modal' | 'fullScreenModal', 'push'>;
   headerSize?: CodegenTypes.WithDefault<'compact' | 'large', 'large'>;
   headerSubtitle?: string;
   trailingId?: string;

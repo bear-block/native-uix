@@ -86,6 +86,20 @@ const HOME_ITEMS: ScrollingItem[] = [
     action: true,
   },
   {
+    id: 'compose',
+    section: 'Navigation',
+    title: 'Modal',
+    subtitle: 'presentation: modal, with its own stack',
+    action: true,
+  },
+  {
+    id: 'fullscreen',
+    section: 'Navigation',
+    title: 'Full-screen modal',
+    subtitle: 'presentation: fullScreenModal',
+    action: true,
+  },
+  {
     id: 'cover',
     section: 'Navigation',
     title: 'Over the tab bar',
@@ -101,6 +115,24 @@ const HOME_ITEMS: ScrollingItem[] = [
 ];
 
 function Home({ navigation }: StackScreenProps) {
+  // Automated checks on iOS: `-NativeUIXModal compose` presents that modal
+  // after 1.5 s, pushes inside it, pops, then dismisses it, 2 s apart.
+  React.useEffect(() => {
+    const modal = Platform.OS === 'ios' ? Settings.get('NativeUIXModal') : null;
+    if (typeof modal !== 'string') {
+      return;
+    }
+    const steps = [
+      () => navigation.push(modal),
+      () => navigation.push('item', { title: 'a route inside the modal' }),
+      navigation.pop,
+      navigation.pop,
+    ];
+    const timers = steps.map((step, index) =>
+      setTimeout(step, 1500 + 2000 * index),
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [navigation]);
   // Automated checks on iOS: `-NativeUIXCover 1` pushes over the tab bar after
   // 2 s, then pops 2 s later.
   React.useEffect(() => {
@@ -154,6 +186,20 @@ const screens: Record<string, StackScreenDefinition> = {
   sheet: {
     component: SheetScreen,
     header: { title: 'Sheet', size: 'compact' },
+  },
+  compose: {
+    component: ModalScreen,
+    presentation: 'modal',
+    header: (_route, navigation) => ({
+      title: 'New note',
+      size: 'compact',
+      trailingAction: { label: 'Save', onPress: navigation.pop },
+    }),
+  },
+  fullscreen: {
+    component: ModalScreen,
+    presentation: 'fullScreenModal',
+    header: { title: 'Full screen', size: 'compact' },
   },
   cover: {
     component: ItemScreen,
@@ -625,6 +671,31 @@ function NavigationScreen({ route, navigation }: StackScreenProps) {
         style={styles.hug}
         onPress={navigation.popToRoot}
       />
+    </StackScrollView>
+  );
+}
+
+function ModalScreen({ navigation }: StackScreenProps) {
+  const colors = useColors();
+  return (
+    <StackScrollView contentContainerStyle={styles.scroll}>
+      <Text style={[styles.body, { color: colors.text }]}>
+        {Platform.OS === 'ios'
+          ? 'A new navigation controller presented over the app. Close it with the close button, by swiping the sheet down, or with Save.'
+          : 'A Material full-screen dialog: it rises over the app and the navigation bar. Close it with the close button, system back, or Save.'}
+      </Text>
+      <Text style={[styles.body, { color: colors.secondary }]}>
+        Routes pushed from here stack inside the modal.
+      </Text>
+      <Button
+        label="Push inside the modal"
+        variant="primary"
+        style={styles.fullWidth}
+        onPress={() =>
+          navigation.push('item', { title: 'a route inside the modal' })
+        }
+      />
+      <Button label="Close" style={styles.hug} onPress={navigation.pop} />
     </StackScrollView>
   );
 }

@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.drop
@@ -41,6 +42,8 @@ internal data class StackHeaderModel(
   val trailingLabel: String,
   val trailingDisabled: Boolean,
   val canGoBack: Boolean,
+  /** The first route of a modal: a close button instead of Up. */
+  val closes: Boolean = false,
   val search: Boolean = false,
   val searchPlaceholder: String = "",
 )
@@ -96,7 +99,14 @@ internal fun StackHeader(
       bridge.scope = scope
     }
     val navigationIcon: @Composable () -> Unit = {
-      if (model.canGoBack) {
+      if (model.closes) {
+        IconButton(onClick = onBack) {
+          Icon(
+            androidx.compose.material.icons.Icons.Filled.Close,
+            contentDescription = stringResource(R.string.native_uix_close),
+          )
+        }
+      } else if (model.canGoBack) {
         IconButton(onClick = onBack) {
           Icon(
             painter = painterResource(androidx.appcompat.R.drawable.abc_ic_ab_back_material),
