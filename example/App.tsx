@@ -14,6 +14,7 @@ import {
   Tabs,
   useStackNavigation,
   useStackSearchText,
+  useTabsAccessoryPlacement,
   type ScrollingItem,
   type SettingsSection,
   type StackHeader,
@@ -26,6 +27,7 @@ import {
 import {
   Platform,
   PlatformColor,
+  Pressable,
   Settings,
   StyleSheet,
   Text,
@@ -211,7 +213,11 @@ const screens: Record<string, StackScreenDefinition> = {
 // System bars follow the platform theme (light and dark), as in native apps.
 export default function App(): React.JSX.Element {
   return (
-    <Tabs initialTab={launchTab()} minimizeBehavior="onScrollDown">
+    <Tabs
+      initialTab={launchTab()}
+      minimizeBehavior="onScrollDown"
+      accessory={<NowPlaying />}
+    >
       <Tab
         id="components"
         title="Components"
@@ -251,6 +257,44 @@ function launchRoute(): string {
 function launchTab(): string {
   const tab = Platform.OS === 'ios' ? Settings.get('NativeUIXTab') : null;
   return typeof tab === 'string' ? tab : 'components';
+}
+
+// The Tabs accessory: a mini player, shown on every tab. Inline (beside the
+// minimized iOS tab bar) it drops the subtitle.
+function NowPlaying() {
+  const colors = useColors();
+  const placement = useTabsAccessoryPlacement();
+  const [playing, setPlaying] = React.useState(false);
+  return (
+    <View style={styles.accessory}>
+      <View style={styles.artwork} />
+      <View style={styles.flex}>
+        <Text
+          numberOfLines={1}
+          style={[styles.accessoryTitle, { color: colors.text }]}
+        >
+          Native Sounds
+        </Text>
+        {placement === 'regular' ? (
+          <Text
+            numberOfLines={1}
+            style={[styles.accessorySubtitle, { color: colors.secondary }]}
+          >
+            Tabs accessory
+          </Text>
+        ) : null}
+      </View>
+      <Pressable
+        accessibilityRole="button"
+        hitSlop={12}
+        onPress={() => setPlaying(value => !value)}
+      >
+        <Text style={[styles.accessoryAction, { color: colors.text }]}>
+          {playing ? 'Pause' : 'Play'}
+        </Text>
+      </Pressable>
+    </View>
+  );
 }
 
 function useColors() {
@@ -853,4 +897,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   log: { borderRadius: 12, gap: 4, padding: 12 },
+  accessory: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+  },
+  artwork: {
+    backgroundColor: '#6750a4',
+    borderRadius: 6,
+    height: 32,
+    width: 32,
+  },
+  accessoryTitle: { fontSize: 15, fontWeight: '600' },
+  accessorySubtitle: { fontSize: 12 },
+  accessoryAction: { fontSize: 15, fontWeight: '600' },
 });

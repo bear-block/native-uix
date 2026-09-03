@@ -433,6 +433,9 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
   internal val coversTabBar: Boolean
     get() = shownForTabs?.let { it.hidesTabBar || modalRoot(it) != null } == true
 
+  /** A modal is on top: it covers the tab bar's accessory too. */
+  internal val showsModal: Boolean get() = shownForTabs?.let { modalRoot(it) != null } == true
+
   private fun enclosingTabs(): NativeUIXTabsView? {
     var parent = parent
     while (parent != null) {

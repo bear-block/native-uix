@@ -36,7 +36,7 @@ export type {
   StackScreenDefinition,
   StackScreenProps,
 } from './components/Stack';
-export {Tab, Tabs} from './components/Tabs';
-export type {TabIcon, TabProps, TabsProps} from './components/Tabs';
+export {Tab, Tabs, useTabsAccessoryPlacement} from './components/Tabs';
+export type {TabIcon, TabProps, TabsAccessoryPlacement, TabsProps} from './components/Tabs';
 export {Sheet} from './components/Sheet';
 export type {SheetDetent, SheetProps} from './components/Sheet';

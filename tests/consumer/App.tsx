@@ -109,7 +109,7 @@ const screens: Record<string, StackScreenDefinition> = {
 export default function App(): React.JSX.Element {
   return (
     <View style={styles.flex}>
-      <Tabs minimizeBehavior="onScrollDown">
+      <Tabs minimizeBehavior="onScrollDown" accessory={<Text>Accessory</Text>}>
         <Tab id="home" title="Home" icon={{ios: 'house', android: 'Home'}}>
           <Stack screens={screens} initialRoute={{name: 'controls'}} />
         </Tab>

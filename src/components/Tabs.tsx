@@ -1,8 +1,22 @@
 import * as React from 'react';
-import {StyleSheet, type StyleProp, type ViewStyle} from 'react-native';
+import {StyleSheet, useWindowDimensions, type StyleProp, type ViewStyle} from 'react-native';
 
 import NativeUIXTab from '../specs/NativeUIXTabNativeComponent';
 import NativeUIXTabs from '../specs/NativeUIXTabsNativeComponent';
+import NativeUIXTabsAccessory from '../specs/NativeUIXTabsAccessoryNativeComponent';
+
+export type TabsAccessoryPlacement = 'regular' | 'inline';
+
+const AccessoryPlacementContext = React.createContext<TabsAccessoryPlacement>('regular');
+
+/**
+ * Where the Tabs accessory is shown: `regular` above the tab bar, or `inline`
+ * beside the minimized tab bar (iOS 26+), where it is smaller; lay the
+ * content out for it. Always `regular` on Android.
+ */
+export function useTabsAccessoryPlacement(): TabsAccessoryPlacement {
+  return React.useContext(AccessoryPlacementContext);
+}
 
 export type TabIcon = {
   /** SF Symbol name, for example `house`. */
@@ -48,6 +62,14 @@ export type TabsProps = {
    * Material does by default).
    */
   minimizeBehavior?: 'automatic' | 'never' | 'onScrollDown' | 'onScrollUp';
+  /**
+   * Content shown with the tab bar on every tab, such as a mini player. iOS
+   * 26+: the tab bar's bottom accessory (Liquid Glass), which moves inline
+   * when the bar minimizes; earlier iOS shows nothing. Android: a floating
+   * Material surface above the navigation bar that stays when the bar slides
+   * away. Hidden with the bar under routes that cover it.
+   */
+  accessory?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
 };
@@ -63,9 +85,12 @@ export function Tabs({
   onTabChange,
   lazy = true,
   minimizeBehavior = 'automatic',
+  accessory,
   style,
   children,
 }: TabsProps): React.JSX.Element {
+  const [placement, setPlacement] = React.useState<TabsAccessoryPlacement>('regular');
+  const window = useWindowDimensions();
   const tabs = React.Children.toArray(children).filter(
     (child): child is React.ReactElement<TabProps> => React.isValidElement<TabProps>(child),
   );
@@ -108,6 +133,20 @@ export function Tabs({
           {!lazy || visited.has(tab.props.id) ? tab.props.children : null}
         </NativeUIXTab>
       ))}
+      {/* After the tabs, so tab indices match on both sides. */}
+      {accessory != null ? (
+        <NativeUIXTabsAccessory
+          key="accessory"
+          collapsable={false}
+          onPlacementChange={event =>
+            setPlacement(event.nativeEvent.placement === 'inline' ? 'inline' : 'regular')
+          }
+          // Until the platform reports the accessory's size.
+          style={[styles.accessory, {width: window.width}]}
+        >
+          <AccessoryPlacementContext.Provider value={placement}>{accessory}</AccessoryPlacementContext.Provider>
+        </NativeUIXTabsAccessory>
+      ) : null}
     </NativeUIXTabs>
   );
 }
@@ -118,4 +157,7 @@ export function Tab(_props: TabProps): React.JSX.Element | null {
   return null;
 }
 
-const styles = StyleSheet.create({tabs: {flex: 1}});
+const styles = StyleSheet.create({
+  tabs: {flex: 1},
+  accessory: {position: 'absolute', left: 0, top: 0, height: 48},
+});

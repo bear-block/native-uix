@@ -6,6 +6,7 @@
 #import <react/renderer/components/NativeUIXSpec/Props.h>
 
 #import "RNUXTabComponentView.h"
+#import "RNUXTabsAccessoryComponentView.h"
 
 using namespace facebook::react;
 
@@ -21,6 +22,7 @@ using namespace facebook::react;
   UITabBarController *_tabBar;
   NSMutableArray<RNUXTabComponentView *> *_tabs;
   NSString *_selectedId;
+  RNUXTabsAccessoryComponentView *_accessory;
   // Set while this view changes the tab bar itself; UIKit reports those
   // changes as selections too, which are not the user's.
   BOOL _applying;
@@ -92,14 +94,38 @@ using namespace facebook::react;
 
 - (void)mountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
 {
+  if ([childComponentView isKindOfClass:RNUXTabsAccessoryComponentView.class]) {
+    _accessory = (RNUXTabsAccessoryComponentView *)childComponentView;
+    [self applyAccessory];
+    return;
+  }
   // The tab lives in its own controller's view, not in this view.
   [_tabs insertObject:(RNUXTabComponentView *)childComponentView atIndex:index];
 }
 
 - (void)unmountChildComponentView:(UIView<RCTComponentViewProtocol> *)childComponentView index:(NSInteger)index
 {
+  if (childComponentView == _accessory) {
+    _accessory = nil;
+    [self applyAccessory];
+    return;
+  }
   [_tabs removeObject:(RNUXTabComponentView *)childComponentView];
   [childComponentView removeFromSuperview];
+}
+
+// iOS 26+: the tab bar's bottom accessory, above the bar or inline beside it
+// when the bar minimizes. Earlier versions have no accessory.
+- (void)applyAccessory
+{
+  if (@available(iOS 26.0, *)) {
+    UIView *content = _accessory.hostView;
+    if (_tabBar.bottomAccessory.contentView == content) {
+      return;
+    }
+    UITabAccessory *accessory = content != nil ? [[UITabAccessory alloc] initWithContentView:content] : nil;
+    [_tabBar setBottomAccessory:accessory animated:self.window != nil];
+  }
 }
 
 - (void)mountingTransactionDidMount:(MountingTransaction const &)transaction
@@ -229,6 +255,8 @@ using namespace facebook::react;
 {
   [super prepareForRecycle];
   [_tabs removeAllObjects];
+  _accessory = nil;
+  [self applyAccessory];
   [_tabBar setViewControllers:@[] animated:NO];
   _selectedId = @"";
 }

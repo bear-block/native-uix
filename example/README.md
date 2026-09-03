@@ -4,7 +4,7 @@ This React Native CLI app is the interactive acceptance surface for Native UIX. 
 
 ## What to check
 
-The app is native `Tabs` (Components, Navigation, Settings, and a Search tab), each tab with its own `Stack`. Switching tabs keeps each tab's routes; on Android, back on another tab returns to Components. **Home** lists the component demos; each row pushes a route. **Over the tab bar** is a `hidesTabBar` route: the tab bar slides away with the push. Tapping the selected tab returns its Stack to the first route. Scrolling down minimizes the tab bar (iOS 26+) or slides the navigation bar away (Android); scrolling up brings it back. Go back with the back button, an edge swipe (iOS), or system back and predictive back (Android 14+). Routes you come back to keep their state and scroll position.
+The app is native `Tabs` (Components, Navigation, Settings, and a Search tab), each tab with its own `Stack`. Switching tabs keeps each tab's routes; on Android, back on another tab returns to Components. **Home** lists the component demos; each row pushes a route. **Over the tab bar** is a `hidesTabBar` route: the tab bar slides away with the push. **Native Sounds**, the mini player above the tab bar, is the `Tabs` accessory: on iOS 26+ it moves inline beside the minimized tab bar and drops its subtitle; on Android it follows the navigation bar down. Tapping the selected tab returns its Stack to the first route. Scrolling down minimizes the tab bar (iOS 26+) or slides the navigation bar away (Android); scrolling up brings it back. Go back with the back button, an edge swipe (iOS), or system back and predictive back (Android 14+). Routes you come back to keep their state and scroll position.
 
 **Navigation**
 
@@ -81,4 +81,4 @@ Search, hero imagery, icon actions, arbitrary React content, and hide-on-scroll 
 
 ## Troubleshooting
 
-After a new native component is added to the library, delete `android/build/generated/autolinking` (the cached configuration) and `android/app/build/generated/autolinking` before building Android. Gradle regenerates the autolinking registry only when a lockfile changes, so a stale registry leaves new components on the default shadow node: their native sizes never reach React (lists end under the navigation bar, screens ignore the app bar).
+After a new native component is added to the library, delete `android/build/generated/autolinking` (the cached configuration) and `android/app/build/generated/autolinking` before building Android. Gradle regenerates the autolinking registry only when a lockfile changes, so a stale registry leaves new components on the default shadow node: their native sizes never reach React (lists end under the navigation bar, screens ignore the app bar). A component with a custom shadow node must also be listed in `componentDescriptors` in the library's `react-native.config.js`.

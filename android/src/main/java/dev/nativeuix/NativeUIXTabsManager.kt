@@ -41,12 +41,18 @@ import com.facebook.react.uimanager.StateWrapper
 import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.ViewGroupManager
 import com.facebook.react.uimanager.ViewManagerDelegate
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import com.facebook.react.viewmanagers.NativeUIXTabManagerDelegate
+import com.facebook.react.viewmanagers.NativeUIXTabsAccessoryManagerDelegate
+import com.facebook.react.viewmanagers.NativeUIXTabsAccessoryManagerInterface
 import com.facebook.react.viewmanagers.NativeUIXTabManagerInterface
 import com.facebook.react.viewmanagers.NativeUIXTabsManagerDelegate
 import com.facebook.react.viewmanagers.NativeUIXTabsManagerInterface
 import com.facebook.react.views.view.ReactViewGroup
 import com.google.android.material.color.MaterialColors
+import com.google.android.material.shape.MaterialShapeDrawable
+import com.google.android.material.shape.ShapeAppearanceModel
 import com.google.android.material.transition.MaterialFadeThrough
 
 /** What the navigation bar shows for one tab. */
@@ -82,6 +88,47 @@ class NativeUIXTabView(context: ThemedReactContext) : ReactViewGroup(context) {
 
   // A search tab without an icon of its own shows the Material search icon.
   internal fun model() = TabItemModel(tabId, title, icon.ifEmpty { if (searchRole) "Search" else "" }, badge)
+}
+
+/** NativeUIXTabsAccessory: React content sized to the accessory surface. */
+class NativeUIXTabsAccessoryView(context: ThemedReactContext) : ReactViewGroup(context) {
+  var stateWrapper: StateWrapper? = null
+
+  internal fun reportSize(widthPx: Int, heightPx: Int) = stateWrapper.reportContainerSize(this, widthPx, heightPx)
+}
+
+/**
+ * The accessory's floating Material surface above the navigation bar; Fabric
+ * positions the content view in it.
+ */
+internal class NativeUIXTabsAccessorySlot(context: Context) : ViewGroup(context) {
+  init {
+    applyTheme()
+    clipToOutline = true
+  }
+
+  fun applyTheme() {
+    val themed = materialContext(context)
+    background = MaterialShapeDrawable(
+      ShapeAppearanceModel.builder().setAllCornerSizes(28 * resources.displayMetrics.density).build(),
+    ).apply {
+      fillColor = android.content.res.ColorStateList.valueOf(
+        MaterialColors.getColor(themed, com.google.android.material.R.attr.colorSurfaceContainerHigh, 0),
+      )
+    }
+    elevation = 3 * resources.displayMetrics.density
+  }
+
+  override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+    setMeasuredDimension(MeasureSpec.getSize(widthMeasureSpec), MeasureSpec.getSize(heightMeasureSpec))
+  }
+
+  override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {}
+
+  override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+    super.onSizeChanged(w, h, oldw, oldh)
+    for (i in 0 until childCount) (getChildAt(i) as? NativeUIXTabsAccessoryView)?.reportSize(w, h)
+  }
 }
 
 /** The area above the navigation bar. Fabric positions tabs inside it. */
@@ -162,26 +209,87 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
     }
   }
 
+  internal val accessorySlot = NativeUIXTabsAccessorySlot(context).apply { visibility = View.GONE }
+  internal var accessory: NativeUIXTabsAccessoryView? = null
+    private set
+
   init {
     content.setBackgroundColor(MaterialColors.getColor(materialContext(context), com.google.android.material.R.attr.colorSurface, 0))
     addView(content, LayoutParams(MATCH_PARENT, MATCH_PARENT))
+    addView(
+      accessorySlot,
+      LayoutParams(MATCH_PARENT, dp(56), Gravity.BOTTOM).apply {
+        leftMargin = dp(16)
+        rightMargin = dp(16)
+      },
+    )
     addView(bar, LayoutParams(MATCH_PARENT, WRAP_CONTENT, Gravity.BOTTOM))
-    // Tabs end at the navigation bar.
-    bar.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ -> if (!barHidden) sizeContent(bottom - top) }
+    // Tabs end at the navigation bar (and the accessory above it).
+    bar.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+      sizeContent()
+      placeAccessory(animated = false)
+    }
   }
 
   override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
     super.onSizeChanged(w, h, oldw, oldh)
-    sizeContent(if (barHidden) 0 else bar.height)
+    sizeContent()
+    placeAccessory(animated = false)
   }
 
-  private fun sizeContent(barHeight: Int) {
-    val height = (this.height - barHeight).coerceAtLeast(0)
-    content.resizeHeight(height)
+  private val accessoryShown: Boolean get() = accessory != null && !underModal
+
+  private fun navigationInset(): Int =
+    ViewCompat.getRootWindowInsets(this)?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
+
+  private fun sizeContent() {
+    // With the bar away, an accessory still keeps the system navigation area.
+    val barSpace = when {
+      !barHidden -> bar.height
+      accessoryShown -> navigationInset()
+      else -> 0
+    }
+    val accessorySpace = if (accessoryShown) accessorySlot.layoutParams.height + dp(16) else 0
+    content.resizeHeight((this.height - barSpace - accessorySpace).coerceAtLeast(0))
   }
+
+  /**
+   * The accessory floats 8 dp above the navigation bar. When the bar slides
+   * away (scrolling, a `hidesTabBar` route) it moves down and stays, as
+   * UIKit keeps it; a modal covers it.
+   */
+  private fun placeAccessory(animated: Boolean) {
+    if (accessory == null) return
+    val target = when {
+      underModal -> accessorySlot.layoutParams.height.toFloat() + dp(8)
+      barHidden -> -(navigationInset() + dp(8)).toFloat()
+      else -> -(bar.height + dp(8)).toFloat()
+    }
+    if (animated && isAttachedToWindow && isLaidOut) {
+      accessorySlot.animate().translationY(target).setDuration(250).start()
+    } else {
+      accessorySlot.animate().cancel()
+      accessorySlot.translationY = target
+    }
+  }
+
+  internal fun setAccessory(view: NativeUIXTabsAccessoryView?) {
+    accessory?.let { accessorySlot.removeView(it) }
+    accessory = view
+    if (view != null) {
+      accessorySlot.addView(view)
+      view.reportSize(accessorySlot.width, accessorySlot.height)
+    }
+    accessorySlot.visibility = if (view != null) View.VISIBLE else View.GONE
+    sizeContent()
+    placeAccessory(animated = false)
+  }
+
+  private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
   override fun onNightModeChanged() {
     content.setBackgroundColor(MaterialColors.getColor(materialContext(context), com.google.android.material.R.attr.colorSurface, 0))
+    accessorySlot.applyTheme()
   }
 
   override fun onAttachedToWindow() {
@@ -245,6 +353,12 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
 
   private var barHidden = false
 
+  /** The selected tab's route covers the tab bar. */
+  private var covered = false
+
+  /** The selected tab shows a modal, which covers the accessory too. */
+  private var underModal = false
+
   /**
    * Another route came on top: the bar shows again, as after navigation in
    * Material and UIKit; a short route could not scroll it back.
@@ -257,20 +371,26 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
   /** Follows the route on top of the selected tab's Stack. */
   internal fun updateBar() {
     val selected = tabs.firstOrNull { it.tabId == selectedId } ?: return
-    setBarHidden(scrollHidden || firstStack(selected)?.coversTabBar == true)
+    val stack = firstStack(selected)
+    covered = stack?.coversTabBar == true
+    underModal = stack?.showsModal == true
+    setBarHidden(scrollHidden || covered)
   }
 
   /** A route that covers the tab bar slides the bar down and takes its space. */
   private fun setBarHidden(hidden: Boolean) {
-    if (hidden == barHidden) return
+    val changed = hidden != barHidden
     barHidden = hidden
-    sizeContent(if (hidden) 0 else bar.height)
-    val distance = if (hidden) bar.height.toFloat() else 0f
-    if (isAttachedToWindow && isLaidOut) {
-      bar.animate().translationY(distance).setDuration(250).start()
-    } else {
-      bar.translationY = distance
+    sizeContent()
+    if (changed) {
+      val distance = if (hidden) bar.height.toFloat() else 0f
+      if (isAttachedToWindow && isLaidOut) {
+        bar.animate().translationY(distance).setDuration(250).start()
+      } else {
+        bar.translationY = distance
+      }
     }
+    placeAccessory(animated = true)
   }
 
   private fun show(id: String) {
@@ -377,15 +497,38 @@ class NativeUIXTabsManager :
     view.minimizeBehavior = value ?: "automatic"
   }
 
-  // React's children are the tabs; they live in the content area.
-  override fun addView(parent: NativeUIXTabsView, child: View, index: Int) =
-    parent.addTab(child as NativeUIXTabView, index)
+  // React's children are the tabs, which live in the content area, then the
+  // optional accessory, which lives in its surface.
+  override fun addView(parent: NativeUIXTabsView, child: View, index: Int) {
+    if (child is NativeUIXTabsAccessoryView) parent.setAccessory(child) else parent.addTab(child as NativeUIXTabView, index)
+  }
 
-  override fun removeViewAt(parent: NativeUIXTabsView, index: Int) = parent.removeTab(index)
+  override fun removeViewAt(parent: NativeUIXTabsView, index: Int) {
+    if (index == parent.tabs.size && parent.accessory != null) parent.setAccessory(null) else parent.removeTab(index)
+  }
 
-  override fun getChildCount(parent: NativeUIXTabsView): Int = parent.tabs.size
+  override fun getChildCount(parent: NativeUIXTabsView): Int = parent.tabs.size + if (parent.accessory != null) 1 else 0
 
-  override fun getChildAt(parent: NativeUIXTabsView, index: Int): View = parent.tabs[index]
+  override fun getChildAt(parent: NativeUIXTabsView, index: Int): View =
+    if (index < parent.tabs.size) parent.tabs[index] else parent.accessory!!
+}
+
+class NativeUIXTabsAccessoryManager :
+  ViewGroupManager<NativeUIXTabsAccessoryView>(),
+  NativeUIXTabsAccessoryManagerInterface<NativeUIXTabsAccessoryView> {
+  private val delegate = NativeUIXTabsAccessoryManagerDelegate(this)
+
+  override fun getName(): String = "NativeUIXTabsAccessory"
+
+  override fun getDelegate(): ViewManagerDelegate<NativeUIXTabsAccessoryView> = delegate
+
+  override fun createViewInstance(reactContext: ThemedReactContext) = NativeUIXTabsAccessoryView(reactContext)
+
+  override fun updateState(view: NativeUIXTabsAccessoryView, props: ReactStylesDiffMap, stateWrapper: StateWrapper): Any? {
+    view.stateWrapper = stateWrapper
+    (view.parent as? NativeUIXTabsAccessorySlot)?.let { view.reportSize(it.width, it.height) }
+    return null
+  }
 }
 
 class NativeUIXTabManager :
