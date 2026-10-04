@@ -50,6 +50,12 @@ using namespace facebook::react;
 {
   _host = [RNUXTabsAccessoryHost new];
   _host.accessory = self;
+  // On iPad the accessory floats at the bottom at its content's width; the
+  // React content has none of its own, so it asks for a mini player's. On
+  // iPhone UIKit stretches it across the bar, overriding this.
+  NSLayoutConstraint *width = [_host.widthAnchor constraintEqualToConstant:420];
+  width.priority = UILayoutPriorityDefaultHigh;
+  width.active = YES;
   [_host addSubview:self];
   _placement = @"";
   if (@available(iOS 26.0, *)) {

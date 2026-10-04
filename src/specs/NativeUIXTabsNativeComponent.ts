@@ -7,6 +7,8 @@ export interface NativeUIXTabsProps extends ViewProps {
   /** ID of the selected tab. */
   selectedId: string;
   minimizeBehavior?: CodegenTypes.WithDefault<'automatic' | 'never' | 'onScrollDown' | 'onScrollUp', 'automatic'>;
+  /** `layout` in JS; named apart from ViewProps. */
+  tabsLayout?: CodegenTypes.WithDefault<'automatic' | 'tabBar' | 'sidebar', 'automatic'>;
   onTabChange?: CodegenTypes.DirectEventHandler<NativeUIXTabChangeEvent>;
 }
 

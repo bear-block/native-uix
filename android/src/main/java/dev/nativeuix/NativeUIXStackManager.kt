@@ -289,6 +289,16 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     sizeContent()
   }
 
+  // Containers move this stack without laying it out (a rail appearing), so
+  // its position is checked before each frame.
+  private val location = IntArray(2)
+  private val trackStart = android.view.ViewTreeObserver.OnPreDrawListener {
+    getLocationInWindow(location)
+    val covered = location[0] > 0
+    if (headerBridge.startInsetCovered.value != covered) headerBridge.startInsetCovered.value = covered
+    true
+  }
+
   private fun sizeContent() {
     val statusBar = ViewCompat.getRootWindowInsets(this)
       ?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
@@ -313,9 +323,11 @@ class NativeUIXStackView(context: ThemedReactContext) : NativeUIXHostLayout(cont
     super.onAttachedToWindow()
     val activity = (context as? ThemedReactContext)?.currentActivity as? ComponentActivity
     activity?.onBackPressedDispatcher?.addCallback(backCallback)
+    viewTreeObserver.addOnPreDrawListener(trackStart)
   }
 
   override fun onDetachedFromWindow() {
+    viewTreeObserver.removeOnPreDrawListener(trackStart)
     backCallback.remove()
     super.onDetachedFromWindow()
   }

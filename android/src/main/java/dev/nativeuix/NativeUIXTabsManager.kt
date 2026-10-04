@@ -21,6 +21,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -200,7 +202,37 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
 
   private val bar = ComposeView(context).apply {
     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
-    setContent { TabsBar(items.value, selection.value) { id -> selectByUser(id) } }
+    setContent { TabsBar(items.value, selection.value, railState.value) { id -> selectByUser(id) } }
+  }
+
+  /** `automatic` or `sidebar`: a navigation rail at medium widths and up; `tabBar`: always the bar. */
+  var layoutMode = "automatic"
+    set(value) {
+      field = value
+      updateRail()
+    }
+
+  /** A navigation rail at the start edge instead of the bar at the bottom. */
+  private val railState = mutableStateOf(false)
+  private val rail: Boolean get() = railState.value
+
+  // Material window size classes: medium starts at 600 dp.
+  private fun updateRail() {
+    val widthDp = width / resources.displayMetrics.density
+    val next = layoutMode != "tabBar" && widthDp >= 600
+    if (width == 0 || next == rail) return
+    railState.value = next
+    bar.animate().cancel()
+    bar.translationX = 0f
+    bar.translationY = 0f
+    barHidden = false
+    bar.layoutParams = if (next) {
+      LayoutParams(WRAP_CONTENT, MATCH_PARENT, Gravity.START)
+    } else {
+      LayoutParams(MATCH_PARENT, WRAP_CONTENT, Gravity.BOTTOM)
+    }
+    bar.post { requestLayout() }
+    updateBar()
   }
 
   private val backCallback = object : OnBackPressedCallback(false) {
@@ -233,6 +265,7 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
 
   override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
     super.onSizeChanged(w, h, oldw, oldh)
+    updateRail()
     sizeContent()
     placeAccessory(animated = false)
   }
@@ -243,14 +276,42 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
     ViewCompat.getRootWindowInsets(this)?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
 
   private fun sizeContent() {
+    val accessorySpace = if (accessoryShown) accessorySlot.layoutParams.height + dp(16) else 0
+    if (rail) {
+      // Tabs sit beside the rail; the accessory floats at their bottom.
+      val start = if (barHidden) 0 else bar.width
+      val bottom = if (accessoryShown) accessorySpace + navigationInset() else 0
+      layoutContent(start, (width - start).coerceAtLeast(0), (height - bottom).coerceAtLeast(0))
+      return
+    }
     // With the bar away, an accessory still keeps the system navigation area.
     val barSpace = when {
       !barHidden -> bar.height
       accessoryShown -> navigationInset()
       else -> 0
     }
-    val accessorySpace = if (accessoryShown) accessorySlot.layoutParams.height + dp(16) else 0
-    content.resizeHeight((this.height - barSpace - accessorySpace).coerceAtLeast(0))
+    layoutContent(0, width, (this.height - barSpace - accessorySpace).coerceAtLeast(0))
+  }
+
+  /** Places the tabs' area at once, as resizeHeight does. */
+  private fun layoutContent(x: Int, contentWidth: Int, contentHeight: Int) {
+    val params = content.layoutParams as LayoutParams
+    if (params.leftMargin == x && params.width == contentWidth && params.height == contentHeight &&
+      content.left == x && content.width == contentWidth && content.height == contentHeight
+    ) {
+      return
+    }
+    params.leftMargin = x
+    params.width = contentWidth
+    params.height = contentHeight
+    content.layoutParams = params
+    if (contentWidth > 0) {
+      content.measure(
+        MeasureSpec.makeMeasureSpec(contentWidth, MeasureSpec.EXACTLY),
+        MeasureSpec.makeMeasureSpec(contentHeight, MeasureSpec.EXACTLY),
+      )
+      content.layout(x, 0, x + contentWidth, contentHeight)
+    }
   }
 
   /**
@@ -260,9 +321,16 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
    */
   private fun placeAccessory(animated: Boolean) {
     if (accessory == null) return
+    val params = accessorySlot.layoutParams as LayoutParams
+    val start = dp(16) + if (rail && !barHidden) bar.width else 0
+    if (params.leftMargin != start) {
+      params.leftMargin = start
+      accessorySlot.layoutParams = params
+      post { requestLayout() }
+    }
     val target = when {
       underModal -> accessorySlot.layoutParams.height.toFloat() + dp(8)
-      barHidden -> -(navigationInset() + dp(8)).toFloat()
+      barHidden || rail -> -(navigationInset() + dp(8)).toFloat()
       else -> -(bar.height + dp(8)).toFloat()
     }
     if (animated && isAttachedToWindow && isLaidOut) {
@@ -374,7 +442,9 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
     val stack = firstStack(selected)
     covered = stack?.coversTabBar == true
     underModal = stack?.showsModal == true
-    setBarHidden(scrollHidden || covered)
+    // A rail stays beside every route, as Material keeps it; only a modal,
+    // a full-screen dialog, covers it.
+    setBarHidden(if (rail) underModal else scrollHidden || covered)
   }
 
   /** A route that covers the tab bar slides the bar down and takes its space. */
@@ -383,11 +453,14 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
     barHidden = hidden
     sizeContent()
     if (changed) {
-      val distance = if (hidden) bar.height.toFloat() else 0f
-      if (isAttachedToWindow && isLaidOut) {
-        bar.animate().translationY(distance).setDuration(250).start()
+      val animator = bar.animate().setDuration(250)
+      val animate = isAttachedToWindow && isLaidOut
+      if (rail) {
+        val distance = if (hidden) -bar.width.toFloat() else 0f
+        if (animate) animator.translationX(distance).start() else bar.translationX = distance
       } else {
-        bar.translationY = distance
+        val distance = if (hidden) bar.height.toFloat() else 0f
+        if (animate) animator.translationY(distance).start() else bar.translationY = distance
       }
     }
     placeAccessory(animated = true)
@@ -425,7 +498,7 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
 }
 
 @Composable
-private fun TabsBar(items: List<TabItemModel>, selected: String, onSelect: (String) -> Unit) {
+private fun TabsBar(items: List<TabItemModel>, selected: String, rail: Boolean, onSelect: (String) -> Unit) {
   if (items.isEmpty()) return
   val context = LocalContext.current
   val dark = isSystemInDarkTheme()
@@ -435,6 +508,27 @@ private fun TabsBar(items: List<TabItemModel>, selected: String, onSelect: (Stri
     else -> lightColorScheme()
   }
   MaterialExpressiveTheme(colorScheme = colors) {
+    if (rail) {
+      // WideNavigationRail (Expressive) is not used yet: its item API is not
+      // in 1.5.0-alpha06; retried on each Material 3 upgrade.
+      NavigationRail {
+        androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.weight(1f))
+        for (item in items) {
+          NavigationRailItem(
+            selected = item.id == selected,
+            onClick = { onSelect(item.id) },
+            icon = {
+              BadgedBox(badge = { if (item.badge.isNotEmpty()) Badge { Text(item.badge) } }) {
+                TabIcon(item.icon)
+              }
+            },
+            label = { Text(item.title) },
+          )
+        }
+        androidx.compose.foundation.layout.Spacer(androidx.compose.ui.Modifier.weight(1f))
+      }
+      return@MaterialExpressiveTheme
+    }
     // ShortNavigationBar (Expressive) in 1.5.0-alpha06 placed only the selected
     // item here; retried on each Material 3 upgrade (EV-0010).
     NavigationBar {
@@ -495,6 +589,10 @@ class NativeUIXTabsManager :
 
   override fun setMinimizeBehavior(view: NativeUIXTabsView, value: String?) {
     view.minimizeBehavior = value ?: "automatic"
+  }
+
+  override fun setTabsLayout(view: NativeUIXTabsView, value: String?) {
+    view.layoutMode = value ?: "automatic"
   }
 
   // React's children are the tabs, which live in the content area, then the

@@ -216,6 +216,7 @@ export default function App(): React.JSX.Element {
     <Tabs
       initialTab={launchTab()}
       minimizeBehavior="onScrollDown"
+      layout="sidebar"
       accessory={<NowPlaying />}
     >
       <Tab

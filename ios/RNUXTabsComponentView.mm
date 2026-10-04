@@ -87,6 +87,18 @@ using namespace facebook::react;
         _tabBar.tabBarMinimizeBehavior = UITabBarMinimizeBehaviorAutomatic;
     }
   }
+  if (@available(iOS 18.0, *)) {
+    switch (next.tabsLayout) {
+      case NativeUIXTabsTabsLayout::TabBar:
+        _tabBar.mode = UITabBarControllerModeTabBar;
+        break;
+      case NativeUIXTabsTabsLayout::Sidebar:
+        _tabBar.mode = UITabBarControllerModeTabSidebar;
+        break;
+      default:
+        _tabBar.mode = UITabBarControllerModeAutomatic;
+    }
+  }
   [super updateProps:props oldProps:oldProps];
   [self applySelection];
   _applying = NO;

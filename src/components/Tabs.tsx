@@ -70,6 +70,14 @@ export type TabsProps = {
    * away. Hidden with the bar under routes that cover it.
    */
   accessory?: React.ReactNode;
+  /**
+   * How the tabs adapt to wide windows. `automatic`: iOS decides (a floating
+   * tab bar on iPad, with a sidebar button when available); Android shows a
+   * navigation rail from 600 dp wide. `sidebar`: iPad (iOS 18+) shows the
+   * tabs in a sidebar, which can collapse to the tab bar; Android as
+   * `automatic`. `tabBar`: always the bar.
+   */
+  layout?: 'automatic' | 'tabBar' | 'sidebar';
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
 };
@@ -86,6 +94,7 @@ export function Tabs({
   lazy = true,
   minimizeBehavior = 'automatic',
   accessory,
+  layout = 'automatic',
   style,
   children,
 }: TabsProps): React.JSX.Element {
@@ -111,6 +120,7 @@ export function Tabs({
     <NativeUIXTabs
       selectedId={selected}
       minimizeBehavior={minimizeBehavior}
+      tabsLayout={layout}
       style={[styles.tabs, style]}
       onTabChange={event => {
         const {id} = event.nativeEvent;

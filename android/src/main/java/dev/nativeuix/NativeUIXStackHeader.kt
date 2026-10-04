@@ -5,6 +5,7 @@ package dev.nativeuix
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.only
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -60,6 +61,12 @@ internal class StackHeaderBridge {
   /** Search text per route, kept while the route is on the stack. */
   val searchTexts = mutableMapOf<String, androidx.compose.foundation.text.input.TextFieldState>()
   var scope: CoroutineScope? = null
+
+  /**
+   * The stack does not start at the window's start edge (a navigation rail
+   * is there), so the bar leaves the start inset (display cutout) to it.
+   */
+  val startInsetCovered = androidx.compose.runtime.mutableStateOf(false)
 
   fun stateFor(routeKey: String): TopAppBarState =
     states.getOrPut(routeKey) { TopAppBarState(-Float.MAX_VALUE, 0f, 0f) }
@@ -121,8 +128,15 @@ internal fun StackHeader(
       }
     }
     val subtitle: @Composable () -> Unit = { if (model.subtitle.isNotEmpty()) Text(model.subtitle) }
+    val windowInsets = TopAppBarDefaults.windowInsets.let {
+      if (bridge.startInsetCovered.value) {
+        it.only(androidx.compose.foundation.layout.WindowInsetsSides.Top + androidx.compose.foundation.layout.WindowInsetsSides.End)
+      } else {
+        it
+      }
+    }
     if (model.search) {
-      SearchHeader(model, bridge, navigationIcon, actions, onSearch)
+      SearchHeader(model, bridge, navigationIcon, actions, onSearch, windowInsets)
     } else if (model.large) {
       LargeFlexibleTopAppBar(
         title = { Text(model.title) },
@@ -130,6 +144,7 @@ internal fun StackHeader(
         navigationIcon = navigationIcon,
         actions = actions,
         scrollBehavior = behavior,
+        windowInsets = windowInsets,
       )
     } else {
       TopAppBar(
@@ -138,6 +153,7 @@ internal fun StackHeader(
         navigationIcon = navigationIcon,
         actions = actions,
         scrollBehavior = behavior,
+        windowInsets = windowInsets,
       )
     }
   }
@@ -151,6 +167,7 @@ private fun SearchHeader(
   navigationIcon: @Composable () -> Unit,
   actions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit,
   onSearch: (type: String, text: String) -> Unit,
+  windowInsets: androidx.compose.foundation.layout.WindowInsets,
 ) {
   val searchState = androidx.compose.material3.rememberSearchBarState()
   val text = bridge.searchTexts.getOrPut(model.routeKey) { androidx.compose.foundation.text.input.TextFieldState() }
@@ -185,5 +202,6 @@ private fun SearchHeader(
     },
     navigationIcon = navigationIcon,
     actions = actions,
+    windowInsets = windowInsets,
   )
 }
