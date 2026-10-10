@@ -63,15 +63,16 @@ internal fun StateWrapper?.reportContainerSize(view: View, widthPx: Int, heightP
  * scrolling resizes these areas at any moment; the area measures nothing but
  * snapshots, so laying it out directly is cheap and keeps its size exact.
  */
-internal fun View.resizeHeight(height: Int) {
-  if (layoutParams.height == height && this.height == height) return
-  layoutParams = layoutParams.apply { this.height = height }
+internal fun View.resizeContent(width: Int, height: Int) {
+  if (layoutParams.width == width && layoutParams.height == height &&
+    this.width == width && this.height == height) return
+  layoutParams = layoutParams.apply { this.width = width; this.height = height }
   if (width > 0) {
     measure(
       View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
       View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
     )
-    layout(left, top, right, top + height)
+    layout(left, top, left + width, top + height)
   }
 }
 

@@ -293,7 +293,7 @@ class NativeUIXTabsView(context: ThemedReactContext) : NativeUIXHostLayout(conte
     layoutContent(0, width, (this.height - barSpace - accessorySpace).coerceAtLeast(0))
   }
 
-  /** Places the tabs' area at once, as resizeHeight does. */
+  /** Places the tabs' area at once, as resizeContent does. */
   private fun layoutContent(x: Int, contentWidth: Int, contentHeight: Int) {
     val params = content.layoutParams as LayoutParams
     if (params.leftMargin == x && params.width == contentWidth && params.height == contentHeight &&
