@@ -40,3 +40,6 @@ export {Tab, Tabs, useTabsAccessoryPlacement} from './components/Tabs';
 export type {TabIcon, TabProps, TabsAccessoryPlacement, TabsProps} from './components/Tabs';
 export {Sheet} from './components/Sheet';
 export type {SheetDetent, SheetProps} from './components/Sheet';
+
+export {parseStackState, validateStackState, resolveStackLink} from './components/stackState';
+export type {StackState, StackRouteInput, StackLinking} from './components/stackState';

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import {
+  Linking,
   ScrollView,
   StyleSheet,
   type ScrollViewProps,
@@ -10,12 +11,8 @@ import {
 import NativeUIXStack from '../specs/NativeUIXStackNativeComponent';
 import NativeUIXStackScreen from '../specs/NativeUIXStackScreenNativeComponent';
 
-export type StackRoute = {
-  /** Unique per route instance; the same screen can be on the stack twice. */
-  key: string;
-  name: string;
-  params?: object;
-};
+import {resolveStackLink, validateStackState, type StackLinking, type StackRoute, type StackRouteInput, type StackState} from './stackState';
+export type {StackRoute} from './stackState';
 
 export type StackHeaderAction = {
   label: string;
@@ -58,6 +55,8 @@ export type StackNavigation = {
   pop: () => void;
   popToRoot: () => void;
   replace: (name: string, params?: object) => void;
+  /** Replace the complete history, for a resolved deep link or app reset. */
+  reset: (routes: readonly StackRouteInput[]) => void;
   /** The Stack this one is nested in, for routes that cover its container (Tabs). */
   parent?: StackNavigation;
 };
@@ -94,6 +93,14 @@ export type StackScreenDefinition = {
 export type StackProps = {
   screens: Record<string, StackScreenDefinition>;
   initialRoute: {name: string; params?: object};
+  /** Read once on mount. Invalid snapshots fall back to initialRoute. */
+  initialState?: StackState;
+  /** Subscribe to warm URLs and resolve the initial launch URL. */
+  linking?: StackLinking;
+  /** Called after a recognized URL replaces this Stack's history. */
+  onLinkHandled?: (url: string) => void;
+  /** Logical route updates, including committed native pops; not animation acknowledgement. */
+  onStateChange?: (state: StackState) => void;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -131,27 +138,44 @@ export function useStackRoute(): StackRoute {
  * the user commits natively is reported once and removed here, never popped
  * a second time. Routes below the top stay mounted, keeping their state.
  */
-export function Stack({screens, initialRoute, style}: StackProps): React.JSX.Element {
+export function Stack({screens, initialRoute, initialState, onStateChange, linking, onLinkHandled, style}: StackProps): React.JSX.Element {
   const nextKey = React.useRef(0);
+  const usedKeys = React.useRef(new Set<string>());
   const makeRoute = React.useCallback(
     (name: string, params?: object): StackRoute => {
-      if (screens[name] == null) {
+      if (!Object.hasOwn(screens, name)) {
         throw new Error(`Stack: unknown screen "${name}"`);
       }
-      nextKey.current += 1;
-      return {key: `${name}-${nextKey.current}`, name, params};
+      let key: string;
+      do { nextKey.current += 1; key = `${name}-${nextKey.current}`; }
+      while (usedKeys.current.has(key));
+      return {key, name, params};
     },
     [screens],
   );
-  const [routes, setRoutes] = React.useState<StackRoute[]>(() => [
-    makeRoute(initialRoute.name, initialRoute.params),
-  ]);
+  const [routes, setRoutes] = React.useState<StackRoute[]>(() => {
+    const restored = validateStackState(initialState, Object.keys(screens));
+    if (restored) {
+      restored.routes.forEach(route => usedKeys.current.add(route.key));
+      return restored.routes;
+    }
+    return [makeRoute(initialRoute.name, initialRoute.params)];
+  });
+  React.useEffect(() => {
+    onStateChange?.({version: 1, routes: routes.map(route => ({...route}))});
+  }, [routes, onStateChange]);
 
   const parent = React.useContext(NavigationContext) ?? undefined;
   const [searchTexts, setSearchTexts] = React.useState<Record<string, string>>({});
   const navigation = React.useMemo<StackNavigation>(
     () => ({
       parent,
+      reset: inputs => {
+        if (!inputs.length || inputs.some(route => !Object.hasOwn(screens, route.name))) {
+          throw new Error('Stack.reset: provide a nonempty history of registered screens.');
+        }
+        setRoutes(inputs.map(route => makeRoute(route.name, route.params)));
+      },
       push: (name, params) => {
         const route = makeRoute(name, params);
         setRoutes(current => [...current, route]);
@@ -163,8 +187,30 @@ export function Stack({screens, initialRoute, style}: StackProps): React.JSX.Ele
         setRoutes(current => [...current.slice(0, -1), route]);
       },
     }),
-    [makeRoute, parent],
+    [makeRoute, parent, screens],
   );
+
+  React.useEffect(() => {
+    if (!linking) return;
+    let active = true;
+    let receivedURL = false;
+    const handle = (url: string) => {
+      const inputs = resolveStackLink(url, linking);
+      if (!inputs || inputs.some(route => !Object.hasOwn(screens, route.name))) return;
+      navigation.reset(inputs);
+      onLinkHandled?.(url);
+    };
+    const subscription = Linking.addEventListener('url', event => {
+      receivedURL = true;
+      if (active) handle(event.url);
+    });
+    if (linking.handleInitialURL !== false) {
+      void Linking.getInitialURL().then(url => {
+        if (active && !receivedURL && url) handle(url);
+      }).catch(() => { /* An unavailable initial URL leaves the current history intact. */ });
+    }
+    return () => { active = false; subscription.remove(); };
+  }, [linking, navigation, onLinkHandled, screens]);
 
   return (
     <NavigationContext.Provider value={navigation}>
