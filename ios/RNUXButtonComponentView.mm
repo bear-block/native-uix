@@ -84,6 +84,18 @@ using namespace facebook::react;
   [super updateProps:props oldProps:oldProps];
 }
 
+// Expose UIKit's control, including its Button role and activation behavior.
+// The Fabric wrapper must remain a container rather than hide that control.
+- (BOOL)isAccessibilityElement
+{
+  return NO;
+}
+
+- (NSObject *)accessibilityElement
+{
+  return _button;
+}
+
 - (void)layoutSubviews
 {
   [super layoutSubviews];

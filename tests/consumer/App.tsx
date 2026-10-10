@@ -95,7 +95,7 @@ function List({navigation}: StackScreenProps) {
 
 function Detail() {
   return (
-    <StackScrollView>
+    <StackScrollView contentContainerStyle={styles.gap}>
       <Text>Detail</Text>
       <Button label="Remount restored detail" onPress={() => remountStack()} />
     </StackScrollView>
@@ -142,7 +142,7 @@ export default function App(): React.JSX.Element {
   }
   return (
     <View style={styles.flex}>
-      <Tabs minimizeBehavior="onScrollDown" layout="sidebar" accessory={<Text>Accessory</Text>}>
+      <Tabs minimizeBehavior="onScrollDown" layout="sidebar" accessory={<View style={styles.accessory}><Text>Accessory</Text></View>}>
         <Tab id="home" title="Home" icon={{ios: 'house', android: 'Home'}}>
           <Stack key={generation} screens={screens} initialRoute={{name: 'controls'}}
             initialState={initialState} linking={linking}
@@ -160,4 +160,5 @@ const styles = StyleSheet.create({
   flex: {flex: 1},
   gap: {gap: 12, padding: 16},
   pages: {height: 40},
+  accessory: {flex: 1, justifyContent: 'center', paddingHorizontal: 16},
 });

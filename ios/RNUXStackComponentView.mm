@@ -421,9 +421,14 @@ using namespace facebook::react;
   [_modals removeAllObjects];
   _presenting = NO;
   [_screens removeAllObjects];
+  _navigation.delegate = nil;
   [_navigation setViewControllers:@[] animated:NO];
-  if (_handedOver) {
-    [self reclaimFromContainer];
-  }
+  // Fabric can reuse this host immediately for a keyed Stack remount. Its
+  // previous controller may still be retained by a UITab. Give the new Stack
+  // a fresh controller so the container replaces that tab and attaches its
+  // view again rather than keeping an emptied controller with a detached view.
+  _navigation = [self makeNavigationController];
+  _handedOver = NO;
+  self.contentView = _navigation.view;
 }
 @end
