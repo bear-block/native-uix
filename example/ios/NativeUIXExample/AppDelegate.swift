@@ -49,7 +49,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     let window = UIWindow(windowScene: windowScene)
     self.window = window
-    factory.startReactNative(withModuleName: "NativeUIXExample", in: window)
+    let launchOptions: [UIApplication.LaunchOptionsKey: Any]? =
+      connectionOptions.urlContexts.first.map { [.url: $0.url] }
+    factory.startReactNative(withModuleName: "NativeUIXExample", in: window, launchOptions: launchOptions)
+  }
+
+  func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+    for context in URLContexts {
+      _ = RCTLinkingManager.application(UIApplication.shared, open: context.url, options: [:])
+    }
   }
 }
 

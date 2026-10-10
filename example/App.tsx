@@ -1,3 +1,4 @@
+import {createMMKV} from 'react-native-mmkv';
 import * as React from 'react';
 import {
   Button,
@@ -12,11 +13,14 @@ import {
   TabContent,
   TabPage,
   Tabs,
+  parseStackState,
   useStackNavigation,
   useStackSearchText,
   useTabsAccessoryPlacement,
   type ScrollingItem,
   type SettingsSection,
+  type StackState,
+  type StackLinking,
   type StackHeader,
   type StackNavigation,
   type StackRoute,
@@ -25,6 +29,7 @@ import {
   type TransitionMotion,
 } from '@bear-block/native-uix';
 import {
+  Linking,
   Platform,
   PlatformColor,
   Pressable,
@@ -212,9 +217,17 @@ const screens: Record<string, StackScreenDefinition> = {
 
 // System bars follow the platform theme (light and dark), as in native apps.
 export default function App(): React.JSX.Element {
+  const [selectedTab, setSelectedTab] = React.useState(launchTab);
+  React.useEffect(() => {
+    try { navigationStorage.set('selected-tab.v1', selectedTab); }
+    catch (error) { console.warn('Tab save failed', error); }
+  }, [selectedTab]);
+  const showNavigation = React.useCallback(() => setSelectedTab('navigation'), []);
   return (
     <Tabs
-      initialTab={launchTab()}
+      selectedTab={selectedTab}
+      onTabChange={setSelectedTab}
+      lazy={false}
       minimizeBehavior="onScrollDown"
       layout="sidebar"
       accessory={<NowPlaying />}
@@ -224,14 +237,14 @@ export default function App(): React.JSX.Element {
         title="Components"
         icon={{ ios: 'square.grid.2x2', android: 'Home' }}
       >
-        <Stack screens={screens} initialRoute={{ name: launchRoute() }} />
+        <RestorableStack id="components" initialRoute={launchRoute()} />
       </Tab>
       <Tab
         id="navigation"
         title="Navigation"
         icon={{ ios: 'arrow.triangle.branch', android: 'List' }}
       >
-        <Stack screens={screens} initialRoute={{ name: 'navigation' }} />
+        <RestorableStack id="navigation" initialRoute="navigation" onOpen={showNavigation} />
       </Tab>
       <Tab
         id="settings"
@@ -239,12 +252,75 @@ export default function App(): React.JSX.Element {
         icon={{ ios: 'gearshape', android: 'Settings' }}
         badge="2"
       >
-        <Stack screens={screens} initialRoute={{ name: 'settings' }} />
+        <RestorableStack id="settings" initialRoute="settings" />
       </Tab>
       <Tab id="search" title="Search" role="search">
-        <Stack screens={screens} initialRoute={{ name: 'list' }} />
+        <RestorableStack id="search" initialRoute="list" />
       </Tab>
     </Tabs>
+  );
+}
+
+const TAB_IDS = ['components', 'navigation', 'settings', 'search'];
+const stackStorageKey = (id: string) => `stack.${id}.v1`;
+const navigationStorage = createMMKV({id: 'native-uix-example.navigation'});
+const RestorationContext = React.createContext<(() => void) | null>(null);
+const navigationLinking: StackLinking = {
+  prefixes: ['nativeuix://'],
+  resolve: path => {
+    const match = /^navigation\/([1-9]\d?)$/.exec(path);
+    if (!match) return null;
+    const depth = Number(match[1]);
+    if (depth > 20) return null;
+    return Array.from({length: depth}, (_, index) => ({
+      name: 'navigation', params: {depth: index + 1},
+    }));
+  },
+};
+
+function readNavigationState(id: string): StackState | undefined {
+  try {
+    const json = navigationStorage.getString(stackStorageKey(id));
+    const state = json ? parseStackState(json, Object.keys(screens)) : null;
+    if (!state || state.routes.some(route => {
+      if (route.name === 'navigation') {
+        const depth = (route.params as NavigationParams)?.depth;
+        return depth !== undefined && (!Number.isSafeInteger(depth) || depth < 1);
+      }
+      if (route.name === 'item') {
+        return typeof (route.params as {title?: unknown} | undefined)?.title !== 'string';
+      }
+      return false;
+    })) return undefined;
+    return state;
+  } catch (error) {
+    console.warn('Navigation restore failed', error);
+    return undefined;
+  }
+}
+
+function RestorableStack({id, initialRoute, onOpen}: {
+  id: string; initialRoute: string; onOpen?: () => void;
+}) {
+  const [initialState, setInitialState] = React.useState(() => readNavigationState(id));
+  const [generation, setGeneration] = React.useState(0);
+  const linking = React.useMemo(() => ({...navigationLinking,
+    handleInitialURL: generation === 0,
+  }), [generation]);
+  const persist = React.useCallback((state: StackState) => {
+    try { navigationStorage.set(stackStorageKey(id), JSON.stringify(state)); }
+    catch (error) { console.warn('Navigation save failed', error); }
+  }, [id]);
+  const restore = React.useCallback(() => {
+    const state = readNavigationState(id);
+    if (state) { setInitialState(state); setGeneration(value => value + 1); }
+  }, [id]);
+  return (
+    <RestorationContext.Provider value={restore}>
+      <Stack key={generation} screens={screens} initialRoute={{name: initialRoute}}
+        initialState={initialState} onStateChange={persist}
+        linking={id === 'navigation' ? linking : undefined} onLinkHandled={onOpen} />
+    </RestorationContext.Provider>
   );
 }
 
@@ -257,7 +333,11 @@ function launchRoute(): string {
 
 function launchTab(): string {
   const tab = Platform.OS === 'ios' ? Settings.get('NativeUIXTab') : null;
-  return typeof tab === 'string' ? tab : 'components';
+  if (typeof tab === 'string' && TAB_IDS.includes(tab)) return tab;
+  try {
+    const saved = navigationStorage.getString('selected-tab.v1');
+    return saved && TAB_IDS.includes(saved) ? saved : 'components';
+  } catch { return 'components'; }
 }
 
 // The Tabs accessory: a mini player, shown on every tab. Inline (beside the
@@ -664,6 +744,26 @@ function NavigationScreen({ route, navigation }: StackScreenProps) {
   const colors = useColors();
   const depth = (route.params as NavigationParams)?.depth ?? 1;
   const [count, setCount] = React.useState(0);
+  const restore = React.useContext(RestorationContext);
+  const [stressRunning, setStressRunning] = React.useState(false);
+  const stressTimers = React.useRef<ReturnType<typeof setTimeout>[]>([]);
+  React.useEffect(() => () => {
+    stressTimers.current.forEach(clearTimeout);
+  }, []);
+  const runRapidNavigation = () => {
+    if (stressRunning) return;
+    setStressRunning(true);
+    // Commands intentionally arrive before a native transition can finish.
+    const steps = [
+      () => navigation.push('navigation', {depth: depth + 1}),
+      () => navigation.replace('navigation', {depth: depth + 2}),
+      navigation.pop,
+      () => setStressRunning(false),
+    ];
+    stressTimers.current = steps.map((step, index) =>
+      setTimeout(step, index * 100),
+    );
+  };
   // Automated checks on iOS: `-NativeUIXScript 1` pushes twice, pops, then
   // pops to the root, 2 s apart, so transitions can be recorded.
   React.useEffect(() => {
@@ -689,7 +789,8 @@ function NavigationScreen({ route, navigation }: StackScreenProps) {
     <StackScrollView contentContainerStyle={styles.scroll}>
       <Text style={[styles.body, { color: colors.secondary }]}>
         Odd levels use a large title, even levels a compact one. The counter
-        survives pushing and coming back.
+        survives pushing and coming back. Rapid navigation must return here
+        with the same counter and a working native header.
       </Text>
       <Button
         label={`Count (${count})`}
@@ -710,6 +811,22 @@ function NavigationScreen({ route, navigation }: StackScreenProps) {
         />
         <Button label="Pop" style={styles.flex} onPress={navigation.pop} />
       </View>
+      <Button
+        label={stressRunning ? 'Rapid navigation running…' : 'Rapid push → replace → pop'}
+        disabled={stressRunning}
+        style={styles.fullWidth}
+        onPress={runRapidNavigation}
+      />
+      <Button label="Open deep link to level 3" style={styles.fullWidth}
+        onPress={() => { Linking.openURL('nativeuix://navigation/3').catch(error =>
+          console.warn('Deep link failed', error)); }} />
+      <Button label="Restore saved stack" style={styles.fullWidth}
+        onPress={() => restore?.()} />
+      <Text style={[styles.body, {color: colors.secondary}]}>
+        Routes save automatically. Restore recreates the stack: route history
+        returns, while Count and scroll offsets reset. Open nativeuix://navigation/3
+        to replace the history with levels 1–3, including after app termination.
+      </Text>
       <Button
         label="Pop to root"
         destructive
