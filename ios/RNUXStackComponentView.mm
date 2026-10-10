@@ -240,6 +240,9 @@ using namespace facebook::react;
   if ([declared isEqualToArray:navigation.viewControllers]) {
     return;
   }
+  // Initial/restored histories may be installed before appearance callbacks.
+  // Apply the top route's bar visibility before UIKit lays out its content.
+  [navigation setNavigationBarHidden:stack.lastObject.headerHidden animated:NO];
   NSArray<UIViewController *> *current = navigation.viewControllers;
   BOOL animated = navigation.view.window != nil && current.count > 0 && declared.count > 0;
   // Push and pop through their own calls where the change is one of those,
