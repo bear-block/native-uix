@@ -106,3 +106,75 @@ jobs:
       - name: Build
         working-directory: ${{ runner.temp }}/consumer/android
         run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+
+  packed-consumer-ios:
+    name: Packed consumer native UI regression (iOS)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - run: gem install cocoapods -v 1.16.2 --no-document
+      - run: npm ci
+      - name: Pack
+        run: npm pack --pack-destination "$RUNNER_TEMP"
+      - name: Create a standalone consumer
+        working-directory: ${{ runner.temp }}
+        run: >
+          npx --yes @react-native-community/cli@20.2.0 init NUXConsumer --directory consumer-ios
+          --version 0.87.1 --skip-git-init --install-pods false --pm npm
+      - name: Install package and fixture
+        working-directory: ${{ runner.temp }}/consumer-ios
+        run: |
+          npm install "$RUNNER_TEMP"/bear-block-native-uix-*.tgz
+          cp "$GITHUB_WORKSPACE/tests/consumer/App.tsx" App.tsx
+          npx tsc --noEmit
+          ruby "$GITHUB_WORKSPACE/tests/consumer/prepare-ios-ui-tests.rb" "$PWD/ios"
+      - run: pod install
+        working-directory: ${{ runner.temp }}/consumer-ios/ios
+      - name: Select one available iPhone simulator
+        shell: bash
+        run: |
+          xcrun simctl list devices available --json > "$RUNNER_TEMP/simulators.json"
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          devices = json.loads(Path(os.environ['RUNNER_TEMP'], 'simulators.json').read_text())['devices']
+          candidates = [(runtime, device) for runtime, items in devices.items()
+                        if 'iOS' in runtime for device in items
+                        if device.get('isAvailable') and device['name'].startswith('iPhone')]
+          if not candidates:
+              raise SystemExit('No available iPhone simulator')
+          candidates.sort(key=lambda item: (tuple(int(part) for part in item[0].split('iOS-')[-1].split('-')), item[1]['name']))
+          runtime, device = candidates[-1]
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write(f"SIMULATOR_UDID={device['udid']}\n")
+          print(f"Selected {device['name']} ({runtime}), {device['udid']}")
+          PYTHON
+      - name: Run Release UI regression
+        working-directory: ${{ runner.temp }}/consumer-ios/ios
+        shell: bash
+        run: |
+          set -o pipefail
+          xcodebuild -workspace NUXConsumer.xcworkspace -scheme NativeUIXPackedUITests \
+            -configuration Release -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            -derivedDataPath "$RUNNER_TEMP/consumer-ios-derived" \
+            -resultBundlePath "$RUNNER_TEMP/consumer-ios-ui.xcresult" \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 90 -collect-test-diagnostics never \
+            test CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/consumer-ios-ui.log"
+      - name: Upload UI results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packed-consumer-ios-ui
+          path: |
+            ${{ runner.temp }}/consumer-ios-ui.xcresult
+            ${{ runner.temp }}/consumer-ios-ui.log
+          if-no-files-found: warn
