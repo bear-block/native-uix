@@ -3,6 +3,10 @@ import * as React from 'react';
 import {StyleSheet, Text, View} from 'react-native';
 import {
   Button,
+  parseStackState,
+  resolveStackLink,
+  type StackState,
+  type StackLinkSource,
   ScrollingList,
   SegmentedControl,
   SettingsScreen,
@@ -25,6 +29,23 @@ const ITEMS = Array.from({length: 30}, (_, index) => ({
   section: index < 15 ? 'First' : 'Second',
   action: true,
 }));
+
+let savedHistory: StackState | null = null;
+let remountStack = () => {};
+let deliverLink: ((url: string) => void) | undefined;
+const linkSource: StackLinkSource = {
+  subscribe(listener) {
+    deliverLink = listener;
+    return () => { deliverLink = undefined; };
+  },
+  async getInitialURL() { return null; },
+};
+const linking = {
+  source: linkSource,
+  prefixes: ['consumer://'],
+  resolve: (path: string) => path === 'detail'
+    ? [{name: 'controls'}, {name: 'detail'}] : null,
+};
 
 function Controls({navigation}: StackScreenProps) {
   const [on, setOn] = React.useState(true);
@@ -54,6 +75,8 @@ function Controls({navigation}: StackScreenProps) {
       <TransitionView style={styles.pages}>
         <Text key={page}>Transition {page}</Text>
       </TransitionView>
+      <Button label="Restore saved history" onPress={() => remountStack()} />
+      <Button label="Resolve detail link" onPress={() => deliverLink?.('consumer://detail')} />
       <Button label="Open list" onPress={() => navigation.push('list')} />
       <Button label="Open modal" onPress={() => navigation.push('modal')} />
     </StackScrollView>
@@ -74,6 +97,7 @@ function Detail() {
   return (
     <StackScrollView>
       <Text>Detail</Text>
+      <Button label="Remount restored detail" onPress={() => remountStack()} />
     </StackScrollView>
   );
 }
@@ -107,11 +131,22 @@ const screens: Record<string, StackScreenDefinition> = {
 };
 
 export default function App(): React.JSX.Element {
+  const [generation, setGeneration] = React.useState(0);
+  remountStack = () => setGeneration(value => value + 1);
+  const initialState = savedHistory
+    ? parseStackState(JSON.stringify(savedHistory), Object.keys(screens)) ?? undefined
+    : undefined;
+  // Exercise the public pure resolver as well as Stack's subscription path.
+  if (!resolveStackLink('consumer://detail', linking)) {
+    throw new Error('Packed link resolver failed');
+  }
   return (
     <View style={styles.flex}>
       <Tabs minimizeBehavior="onScrollDown" layout="sidebar" accessory={<Text>Accessory</Text>}>
         <Tab id="home" title="Home" icon={{ios: 'house', android: 'Home'}}>
-          <Stack screens={screens} initialRoute={{name: 'controls'}} />
+          <Stack key={generation} screens={screens} initialRoute={{name: 'controls'}}
+            initialState={initialState} linking={linking}
+            onStateChange={state => { savedHistory = state; }} />
         </Tab>
         <Tab id="settings" title="Settings" icon={{ios: 'gearshape', android: 'Settings'}} badge="1">
           <Stack screens={screens} initialRoute={{name: 'settings'}} />

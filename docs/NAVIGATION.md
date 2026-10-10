@@ -101,9 +101,9 @@ strings with authority boundaries; the app explicitly owns decoding, query
 parameters, authorization and route parameter validation.
 
 Register the app's scheme in its Android intent filter and iOS URL types, and
-forward URLs from the app's iOS lifecycle. The example uses UIScene and forwards
-warm URLs from `scene(_:openURLContexts:)`; cold URLs go into React Native launch
-options. HTTPS App Links and Universal Links still require app/domain setup;
+forward URLs from the app's iOS lifecycle. The example uses UIScene and an
+app-owned native inbox for both cold scene URL contexts and warm URLs from
+`scene(_:openURLContexts:)`; see the startup source contract below. HTTPS App Links and Universal Links still require app/domain setup;
 this example demonstrates a custom scheme only. Multiple Stacks must not
 compete for the same prefix: configure a single owner or coordinate links in the
 app. A Stack in a lazy tab must be mounted before it can subscribe.
@@ -135,7 +135,34 @@ override fun onNewIntent(intent: Intent) {
 The example demonstrates this in `MainActivity`. Its initial URL query then
 recovers the latest URL received before mounting, while warm events after
 subscription keep working. This does not introduce a library-owned global
-URL queue, and this Android integration does not establish equivalent iOS
-pre-subscription delivery. The example's iOS cold/warm paths have been checked
-separately; URLs received between scene startup and JavaScript subscription
-remain unverified.
+URL queue. iOS uses the separate app-owned inbox described below.
+
+### App-owned startup URL source on iOS
+
+`StackLinking.source?: StackLinkSource` lets a host supply its native URL inbox.
+Omit it to use React Native Linking. A source provides
+`subscribe(listener): () => void` and `getInitialURL(): Promise<string | null>`.
+The Stack subscribes first, then queries the pending URL; a newer live URL wins
+over a slower initial response. Cleanup stops delivery to an unmounted Stack.
+The source owns native startup capture, delivery ordering and draining its
+pending URL. Keep the source stable and assign one owner to its URL namespace.
+
+The example's `NativeUIXExampleLinks` module captures scene URLs on the main
+queue, keeps the latest one until the Stack is ready, then delivers live events.
+Its initial query consumes the buffered URL and enables live delivery on the
+same queue. Removing the listener returns it to buffering. This is an
+example-owned React Native native module, not a library dependency. A consuming
+app must implement equivalent lifecycle integration if it needs this guarantee;
+plain React Native Linking does not gain a native buffer automatically.
+
+The example queries this draining source on Stack remounts as well, so URLs
+received during a remount can be handled. Its consumed launch URL is not replayed.
+This differs from Android's activity initial URL, for which the example disables
+re-querying on an in-app remount. The inbox is process-local and single-consumer;
+it does not persist URLs across process death, support multiple scenes or apply
+authentication checks. Query the source after subscribing. When using
+`handleInitialURL: false`, the source must already be ready for live delivery.
+
+On iOS, replacing an unrelated complete history uses `setViewControllers`
+without animation to avoid racing initial tab-controller appearance. Ordinary
+push/pop transitions still use native animation.

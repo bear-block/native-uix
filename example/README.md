@@ -161,3 +161,24 @@ Level 4 opens with Back returning to Level 3. The script asserts the waiting
 screen before and after URL delivery so an ordinary warm-link pass cannot hide
 the startup race. Normal launches have no delay. `MainActivity.onNewIntent`
 retains the latest intent so React Native's initial URL query can recover it.
+
+### iOS URL during startup
+
+The example's native `NativeUIXExampleLinks` inbox captures cold and warm scene
+URLs before JS subscribes, retaining the latest URL until consumption. Build and
+install the updated native example before testing; Metro alone cannot add this
+module. With the intended simulator already booted, run:
+
+```sh
+SIMULATOR_UDID=your-simulator-uuid sh example/scripts/check-ios-startup-link.sh
+```
+
+Inspect the captured images: the waiting screen must still be visible after both
+URLs arrive; the final screen must show Level 4 with Back and Done. This fixture
+captures screenshots for visual inspection and does not assert their contents.
+If iOS presents an Open confirmation, accept it and repeat. Cold bundle startup
+may need more than the initial two-second wait; a run that does not show the
+waiting screen is inconclusive for the controlled post-JS/pre-Stack interval.
+Afterward, test a warm URL and **Restore saved stack**: consumed links must not
+replay. Restart normally with `-NativeUIXStartupDelayMs 0` to skip the fixture delay.
+Only the latest startup URL is retained; this is a single-scene example.
