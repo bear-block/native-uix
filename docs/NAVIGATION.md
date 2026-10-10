@@ -166,3 +166,30 @@ authentication checks. Query the source after subscribing. When using
 On iOS, replacing an unrelated complete history uses `setViewControllers`
 without animation to avoid racing initial tab-controller appearance. Ordinary
 push/pop transitions still use native animation.
+
+## Acceptance status
+
+Navigation remains **Experimental**. Stack, Tabs, modal routes, native headers,
+search, custom-scheme linking and versioned route-history restoration are
+implemented. The example and standalone packed consumers have executed native
+builds on iOS and Android. Local iOS Release XCUITest covers button activation,
+synthetic link resolution, three Stack remounts, native Back and List → Back.
+It detects the pre-fix remount failure. Android scripted consumer checks cover
+the corresponding basic link/remount/system-Back flow.
+
+The following checks remain open and do not block further experimental
+component work. They still block a production navigation acceptance claim.
+
+| Area | Status | Remaining verification |
+|---|---|---|
+| Gestures and rapid transitions | Partial | Existing example checks include Android cancellation and owner-reported iOS gestures; comprehensive modal, restored-history and tab-bar gesture interruption coverage remains open. XCUITest does not cover gesture cancellation. |
+| Accessibility and focus | Partial | iOS Button exposes its native role; VoiceOver/TalkBack spoken output, focus after push/pop/tab switch/modal dismissal and disabled-control semantics need a full walkthrough. |
+| Keyboard, rotation and adaptive layouts | Partial | Search and adaptive hosts exist; keyboard/back ordering, rotation during navigation, large text, RTL and tablet/sidebar interactions need navigation-specific acceptance. |
+| Physical devices | Deferred | Hardware acceptance and performance measurements are deferred by the maintainer. Simulator/emulator results do not establish hardware behavior. |
+| Hosted iOS UI regression | Pending first run | The CI job is configured; the new GitHub-hosted job has not yet executed. Local XCUITest passed. |
+| Linking and restoration scope | Bounded experimental | Example custom-scheme checks passed; associated domains, multi-scene routing, authenticated URL handling and persistent URL inboxes are not established. Component state, query text and scroll offsets are excluded from route snapshots. |
+| Compatibility | Unclaimed beyond executed tuples | Broader React Native/OS/device support and release readiness require separate acceptance. |
+
+See the [packed consumer regression instructions](../tests/consumer/README.md)
+for the repeatable local UI test. Keep these checks open when starting other
+components; a new component does not close navigation acceptance automatically.
