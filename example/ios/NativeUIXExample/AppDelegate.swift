@@ -51,12 +51,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     self.window = window
     let launchOptions: [UIApplication.LaunchOptionsKey: Any]? =
       connectionOptions.urlContexts.first.map { [.url: $0.url] }
-    factory.startReactNative(withModuleName: "NativeUIXExample", in: window, launchOptions: launchOptions)
+    if let url = connectionOptions.urlContexts.first?.url {
+      NativeUIXExampleLinks.receive(url)
+    }
+    let delay = max(0, min(10000, UserDefaults.standard.integer(forKey: "NativeUIXStartupDelayMs")))
+    factory.startReactNative(withModuleName: "NativeUIXExample", in: window,
+                            initialProperties: ["startupDelayMs": delay], launchOptions: launchOptions)
   }
 
   func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
     for context in URLContexts {
-      _ = RCTLinkingManager.application(UIApplication.shared, open: context.url, options: [:])
+      NativeUIXExampleLinks.receive(context.url)
     }
   }
 }
@@ -72,5 +77,41 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
 #else
     Bundle.main.url(forResource: "main", withExtension: "jsbundle")
 #endif
+  }
+}
+
+// App-owned startup inbox: one consumer, latest URL wins before JS is ready.
+@objc(NativeUIXExampleLinks)
+class NativeUIXExampleLinks: RCTEventEmitter {
+  private static var pendingURL: String?
+  private static weak var emitter: NativeUIXExampleLinks?
+  private var ready = false
+
+  override init() {
+    super.init()
+    Self.emitter = self
+  }
+
+  @objc override static func requiresMainQueueSetup() -> Bool { true }
+  override var methodQueue: DispatchQueue! { DispatchQueue.main }
+  override func supportedEvents() -> [String]! { ["url"] }
+  override func stopObserving() { ready = false }
+
+  static func receive(_ url: URL) {
+    if let emitter = emitter, emitter.ready {
+      emitter.sendEvent(withName: "url", body: ["url": url.absoluteString])
+    } else {
+      pendingURL = url.absoluteString
+    }
+  }
+
+  @objc(consumeInitialURL:reject:)
+  func consumeInitialURL(_ resolve: RCTPromiseResolveBlock, reject: RCTPromiseRejectBlock) {
+    // JS subscribes before calling this. Main-queue serialization closes the
+    // gap between consuming the pending URL and starting live delivery.
+    ready = true
+    let url = Self.pendingURL
+    Self.pendingURL = nil
+    resolve(url)
   }
 }

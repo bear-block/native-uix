@@ -30,6 +30,8 @@ import {
 } from '@bear-block/native-uix';
 import {
   Linking,
+  NativeEventEmitter,
+  NativeModules,
   Platform,
   PlatformColor,
   Pressable,
@@ -276,7 +278,19 @@ const TAB_IDS = ['components', 'navigation', 'settings', 'search'];
 const stackStorageKey = (id: string) => `stack.${id}.v1`;
 const navigationStorage = createMMKV({id: 'native-uix-example.navigation'});
 const RestorationContext = React.createContext<(() => void) | null>(null);
+const iosLinkModule = Platform.OS === 'ios' ? NativeModules.NativeUIXExampleLinks : null;
+const iosLinkEmitter = iosLinkModule ? new NativeEventEmitter(iosLinkModule) : null;
 const navigationLinking: StackLinking = {
+  source: iosLinkEmitter ? {
+    subscribe: listener => {
+      const subscription = iosLinkEmitter.addListener('url', (...args: readonly Object[]) => {
+        const event = args[0] as {url?: unknown} | undefined;
+        if (typeof event?.url === 'string') listener(event.url);
+      });
+      return () => subscription.remove();
+    },
+    getInitialURL: () => iosLinkModule.consumeInitialURL() as Promise<string | null>,
+  } : undefined,
   prefixes: ['nativeuix://'],
   resolve: path => {
     const match = /^navigation\/([1-9]\d?)$/.exec(path);
@@ -316,7 +330,7 @@ function RestorableStack({id, initialRoute, onOpen}: {
   const [initialState, setInitialState] = React.useState(() => readNavigationState(id));
   const [generation, setGeneration] = React.useState(0);
   const linking = React.useMemo(() => ({...navigationLinking,
-    handleInitialURL: generation === 0,
+    handleInitialURL: Platform.OS === 'ios' || generation === 0,
   }), [generation]);
   const persist = React.useCallback((state: StackState) => {
     try { navigationStorage.set(stackStorageKey(id), JSON.stringify(state)); }
