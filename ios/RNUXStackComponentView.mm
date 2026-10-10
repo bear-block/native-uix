@@ -254,7 +254,10 @@ using namespace facebook::react;
              [[current subarrayWithRange:NSMakeRange(0, declared.count)] isEqualToArray:declared]) {
     [navigation popToViewController:declared.lastObject animated:animated];
   } else {
-    [navigation setViewControllers:declared animated:animated];
+    // A reset replaces unrelated controller histories. Installing it without
+    // a push animation also avoids an initial deep-link transition racing
+    // the tab controller's first appearance.
+    [navigation setViewControllers:declared animated:NO];
   }
 }
 

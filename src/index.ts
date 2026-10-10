@@ -42,4 +42,4 @@ export {Sheet} from './components/Sheet';
 export type {SheetDetent, SheetProps} from './components/Sheet';
 
 export {parseStackState, validateStackState, resolveStackLink} from './components/stackState';
-export type {StackState, StackRouteInput, StackLinking} from './components/stackState';
+export type {StackState, StackRouteInput, StackLinking, StackLinkSource} from './components/stackState';

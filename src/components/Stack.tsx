@@ -8,6 +8,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import {observeStackLinks} from './stackLinkSource';
+
 import NativeUIXStack from '../specs/NativeUIXStackNativeComponent';
 import NativeUIXStackScreen from '../specs/NativeUIXStackScreenNativeComponent';
 
@@ -192,24 +194,19 @@ export function Stack({screens, initialRoute, initialState, onStateChange, linki
 
   React.useEffect(() => {
     if (!linking) return;
-    let active = true;
-    let receivedURL = false;
     const handle = (url: string) => {
       const inputs = resolveStackLink(url, linking);
       if (!inputs || inputs.some(route => !Object.hasOwn(screens, route.name))) return;
       navigation.reset(inputs);
       onLinkHandled?.(url);
     };
-    const subscription = Linking.addEventListener('url', event => {
-      receivedURL = true;
-      if (active) handle(event.url);
-    });
-    if (linking.handleInitialURL !== false) {
-      void Linking.getInitialURL().then(url => {
-        if (active && !receivedURL && url) handle(url);
-      }).catch(() => { /* An unavailable initial URL leaves the current history intact. */ });
-    }
-    return () => { active = false; subscription.remove(); };
+    return observeStackLinks(linking.source ?? {
+      subscribe: receive => {
+        const subscription = Linking.addEventListener('url', event => receive(event.url));
+        return () => subscription.remove();
+      },
+      getInitialURL: async () => (await Linking.getInitialURL()) ?? null,
+    }, handle, linking.handleInitialURL !== false);
   }, [linking, navigation, onLinkHandled, screens]);
 
   return (

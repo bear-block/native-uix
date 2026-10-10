@@ -50,7 +50,15 @@ export function parseStackState(json: string, screenNames: readonly string[]): S
   try { return validateStackState(JSON.parse(json), screenNames); } catch { return null; }
 }
 
+export type StackLinkSource = {
+  /** Subscribe before reading the pending URL. Return a cleanup function. */
+  subscribe: (listener: (url: string) => void) => () => void;
+  getInitialURL: () => Promise<string | null>;
+};
+
 export type StackLinking = {
+  /** Optional app-owned native inbox; defaults to React Native Linking. */
+  source?: StackLinkSource;
   /** Disable when remounting a Stack in an already running app. Defaults to true. */
   handleInitialURL?: boolean;
   /** Include the scheme and authority separator, e.g. nativeuix://. */
