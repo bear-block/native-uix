@@ -1,5 +1,6 @@
 package com.nativeuixexample
 
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.core.view.WindowCompat
@@ -21,7 +22,19 @@ class MainActivity : ReactActivity() {
    * which allows you to enable New Architecture with a single boolean flags [fabricEnabled]
    */
   override fun createReactActivityDelegate(): ReactActivityDelegate =
-      DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled)
+      object : DefaultReactActivityDelegate(this, mainComponentName, fabricEnabled) {
+        override fun getLaunchOptions(): Bundle = Bundle().apply {
+          // Acceptance-only: hold the JS navigator while a second URL arrives.
+          putInt("startupDelayMs", intent.getIntExtra("nativeuixStartupDelayMs", 0).coerceIn(0, 10000))
+        }
+      }
+
+  override fun onNewIntent(intent: Intent) {
+    // Linking.getInitialURL reads Activity.intent after JS subscribes. Keep the
+    // latest URL even when React Native has no URL listener yet.
+    setIntent(intent)
+    super.onNewIntent(intent)
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)

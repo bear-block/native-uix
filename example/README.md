@@ -150,3 +150,14 @@ example running), run `python3 example/scripts/check-android-restoration.py`.
 Set `ADB` if needed. It replaces Navigation history, opens Buttons, restarts on
 Settings and Search, and checks that a deep link leaves Components history
 intact. It expects Components at Home or Buttons and does not clear app data.
+
+### Android URL during startup
+
+Run `python3 example/scripts/check-android-startup-link.py` with one connected
+Android emulator and Metro running (`ADB` may select the executable). This
+force-stops the example, launches with an acceptance-only 10-second navigator
+mount delay, sends URLs to Level 3 then Level 4 before mounting, and checks that
+Level 4 opens with Back returning to Level 3. The script asserts the waiting
+screen before and after URL delivery so an ordinary warm-link pass cannot hide
+the startup race. Normal launches have no delay. `MainActivity.onNewIntent`
+retains the latest intent so React Native's initial URL query can recover it.

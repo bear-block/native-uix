@@ -117,3 +117,25 @@ URL selects Navigation and overrides that Stack alone. The app coordinates these
 snapshots using separate versioned keys; the library does not own storage or a
 global navigation singleton. Component state and standalone Sheet presentation
 are not restored. The prior Navigation-only example key is not migrated.
+
+### Android URLs received during startup
+
+With a `singleTask` activity, React Native forwards `onNewIntent` to JavaScript,
+but a URL event can arrive before a Stack subscribes. Android `Linking.getInitialURL`
+reads the activity's current intent. The application must retain the latest
+intent before forwarding it:
+
+```kotlin
+override fun onNewIntent(intent: Intent) {
+  setIntent(intent)
+  super.onNewIntent(intent)
+}
+```
+
+The example demonstrates this in `MainActivity`. Its initial URL query then
+recovers the latest URL received before mounting, while warm events after
+subscription keep working. This does not introduce a library-owned global
+URL queue, and this Android integration does not establish equivalent iOS
+pre-subscription delivery. The example's iOS cold/warm paths have been checked
+separately; URLs received between scene startup and JavaScript subscription
+remain unverified.

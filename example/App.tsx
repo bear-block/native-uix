@@ -216,7 +216,18 @@ const screens: Record<string, StackScreenDefinition> = {
 };
 
 // System bars follow the platform theme (light and dark), as in native apps.
-export default function App(): React.JSX.Element {
+export default function App({startupDelayMs = 0}: {startupDelayMs?: number}): React.JSX.Element {
+  const delay = Math.min(10000, Math.max(0, startupDelayMs));
+  const [ready, setReady] = React.useState(delay === 0);
+  React.useEffect(() => {
+    const timer = setTimeout(() => setReady(true), delay);
+    return () => clearTimeout(timer);
+  }, [delay]);
+  if (!ready) return <Text accessibilityRole="text">Waiting to mount navigation…</Text>;
+  return <ExampleNavigation />;
+}
+
+function ExampleNavigation(): React.JSX.Element {
   const [selectedTab, setSelectedTab] = React.useState(launchTab);
   React.useEffect(() => {
     try { navigationStorage.set('selected-tab.v1', selectedTab); }
