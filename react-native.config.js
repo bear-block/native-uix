@@ -7,6 +7,7 @@ export default {
         // Custom shadow nodes (common/cpp) are registered next to generated ones.
         componentDescriptors: [
           'NativeUIXButtonComponentDescriptor',
+          'NativeUIXTextFieldComponentDescriptor',
           'NativeUIXSwitchComponentDescriptor',
           'NativeUIXSegmentedControlComponentDescriptor',
           'NativeUIXSettingsComponentDescriptor',

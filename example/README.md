@@ -182,3 +182,11 @@ waiting screen is inconclusive for the controlled post-JS/pre-Stack interval.
 Afterward, test a warm URL and **Restore saved stack**: consumed links must not
 replay. Restart normally with `-NativeUIXStartupDelayMs 0` to skip the fixture delay.
 Only the latest startup URL is retained; this is a single-scene example.
+
+## Experimental text input
+
+Open Components → Text fields. Try accepted edits, Focus/Blur, Reset, rejected
+Locked edits, password and disabled input, then Done on the native keyboard.
+Committed text callbacks exclude active IME composition; with a composing
+keyboard, finish the candidate/press Done before comparing the JS committed
+value. See [the TextField contract](../docs/TEXT-FIELD.md) for open acceptance.

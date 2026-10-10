@@ -43,3 +43,6 @@ export type {SheetDetent, SheetProps} from './components/Sheet';
 
 export {parseStackState, validateStackState, resolveStackLink} from './components/stackState';
 export type {StackState, StackRouteInput, StackLinking, StackLinkSource} from './components/stackState';
+
+export {TextField} from './components/TextField';
+export type {TextFieldProps, TextFieldHandle} from './components/TextField';

@@ -73,7 +73,8 @@
         "NativeUIXTab": "RNUXTabComponentView",
         "NativeUIXSheet": "RNUXSheetComponentView",
         "NativeUIXSheetContent": "RNUXSheetContentComponentView",
-        "NativeUIXTabsAccessory": "RNUXTabsAccessoryComponentView"
+        "NativeUIXTabsAccessory": "RNUXTabsAccessoryComponentView",
+        "NativeUIXTextField": "RNUXTextFieldComponentView"
       }
     }
   }

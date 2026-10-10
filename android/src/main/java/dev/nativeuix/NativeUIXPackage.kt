@@ -12,6 +12,7 @@ class NativeUIXPackage : ReactPackage {
     reactContext: ReactApplicationContext,
   ): List<ViewManager<*, *>> = listOf(
     NativeUIXButtonManager(),
+    NativeUIXTextFieldManager(),
     NativeUIXSwitchManager(),
     NativeUIXSegmentedControlManager(),
     NativeUIXSettingsManager(),

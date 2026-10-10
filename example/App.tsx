@@ -2,6 +2,8 @@ import {createMMKV} from 'react-native-mmkv';
 import * as React from 'react';
 import {
   Button,
+  TextField,
+  type TextFieldHandle,
   ScrollingList,
   Sheet,
   SegmentedControl,
@@ -52,6 +54,7 @@ const PLATFORM_LINE =
     : 'Material 3 with dynamic color';
 
 const HOME_ITEMS: ScrollingItem[] = [
+  {id: 'textfield', section: 'Controls', title: 'Text fields', subtitle: 'Single line, secure, rejected edits, focus and submit', action: true},
   {
     id: 'buttons',
     section: 'Controls',
@@ -165,6 +168,7 @@ const screens: Record<string, StackScreenDefinition> = {
     component: Home,
     header: { title: 'Native UIX', subtitle: PLATFORM_LINE },
   },
+  textfield: {component: TextFieldsScreen, header: {title: 'Text fields'}},
   buttons: { component: ButtonsScreen, header: { title: 'Buttons' } },
   switches: { component: SwitchesScreen, header: { title: 'Switches' } },
   segmented: {
@@ -1057,3 +1061,23 @@ const styles = StyleSheet.create({
   accessorySubtitle: { fontSize: 12 },
   accessoryAction: { fontSize: 15, fontWeight: '600' },
 });
+
+function TextFieldsScreen() {
+  const [value, setValue] = React.useState('Hello');
+  const [password, setPassword] = React.useState('');
+  const [log, record] = useLog();
+  const field = React.useRef<TextFieldHandle>(null);
+  return <StackScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <Text>Committed text: {value}</Text>
+    <TextField ref={field} value={value} onChangeText={setValue} placeholder="Enter text"
+      onFocusChange={focused => record(`Focus: ${focused}`)} onSubmit={text => record(`Submit: ${text}`)} />
+    <Button label="Focus input" onPress={() => field.current?.focus()} />
+    <Button label="Blur input" onPress={() => field.current?.blur()} />
+    <Button label="Reset text" onPress={() => setValue('Hello')} />
+    <Text>Rejected edits return to the committed text.</Text>
+    <TextField value="Locked" onChangeText={() => record('Edit rejected')} />
+    <TextField value={password} onChangeText={setPassword} secure placeholder="Password" />
+    <TextField value="Disabled" onChangeText={() => {}} disabled />
+    {log.map((line, index) => <Text key={`${index}-${line}`}>{line}</Text>)}
+  </StackScrollView>;
+}
