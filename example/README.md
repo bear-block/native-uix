@@ -82,3 +82,71 @@ Search, hero imagery, icon actions, arbitrary React content, and hide-on-scroll 
 ## Troubleshooting
 
 After a new native component is added to the library, delete `android/build/generated/autolinking` (the cached configuration) and `android/app/build/generated/autolinking` before building Android. Gradle regenerates the autolinking registry only when a lockfile changes, so a stale registry leaves new components on the default shadow node: their native sizes never reach React (lists end under the navigation bar, screens ignore the app bar). A component with a custom shadow node must also be listed in `componentDescriptors` in the library's `react-native.config.js`.
+
+## Rapid Stack command acceptance
+
+In the Navigation demo, increment Count, then tap **Rapid push → replace → pop**. Commands arrive 100 ms apart, while native transitions may still be active. The example must return to the initiating route with the same Count, no duplicate header, no stuck animation and working buttons. Repeat, then perform a normal push and native Back. This scenario is an acceptance fixture, not evidence of a passed runtime check until executed. Avoid manually popping the initiating route while the sequence runs.
+
+## Deep links and saved navigation
+
+Every tab saves its Stack routes with MMKV, and the app saves the selected tab. Push several levels,
+then use **Restore saved stack**, or terminate and reopen the app. The same route
+history and params should return; Count, search text and scroll offsets reset.
+A malformed or incompatible saved Stack falls back to that tab's initial route.
+Unknown saved tab IDs fall back to Components. Snapshots use separate versioned
+keys per tab; the earlier Navigation-only demo key is not migrated.
+
+Use **Open deep link to level 3**, or open the URL externally:
+
+```sh
+xcrun simctl openurl booted 'nativeuix://navigation/3'
+adb shell am start -W -a android.intent.action.VIEW -d 'nativeuix://navigation/3' com.nativeuixexample
+```
+
+Check both warm and terminated-app launches. Level 3 must appear in the Navigation
+tab, with Back returning to Level 2 then Level 1. A launch URL overrides saved
+history. Unknown paths leave the current history intact. Repeat the same URL:
+there should still be three routes, rather than three more routes per link.
+The custom scheme supports depths 1–20. Domain-associated HTTPS links and native
+gesture acceptance are separate checks. Full application data is not persisted.
+
+## Back gesture acceptance
+
+With one Android emulator connected, portrait orientation and gesture navigation
+selected, run from the repository root:
+
+```sh
+python3 example/scripts/check-android-back.py
+```
+
+Set `ADB` to the platform-tools executable if it is not on PATH. The script
+replaces Navigation history, completes an edge Back, increments Count, reverses
+an edge gesture to cancel, then checks rapid navigation and a subsequent push
+and edge Back. It temporarily enables Android's predictive Back developer
+setting and restores the prior value. Assertions observe the resulting route and
+Count; they do not measure animation frames or prove intermediate callbacks.
+
+On iPhone, open Navigation at Level 3, increment Count, then drag from the left
+edge partway and return to the edge before releasing. Level 3, its title and
+Count must remain. Push another level and complete an edge swipe: return to the
+same Level 3 and Count. Repeat after **Restore saved stack** and after opening
+`nativeuix://navigation/3`. Check native Back and rapid commands still work.
+Record these touch checks separately; Android results do not establish iOS
+interactive gesture behavior.
+
+### Restore all tab histories
+
+Open Buttons in Components, push several levels in Navigation, then select
+Settings and terminate the app. Reopen: Settings must be selected. Components
+must still show Buttons and Navigation must still show its saved level. Repeat
+with Search selected. Opening a Navigation deep link must select Navigation and
+replace only that Stack's history; Components and Search histories must survive.
+Component-local counters, scroll positions, search queries, sheet visibility and
+the accessory's playing state reset after process termination. Modal Stack routes
+are part of route history; standalone Sheet presentation is not.
+
+For the Android acceptance sequence (one connected portrait emulator, Metro and
+example running), run `python3 example/scripts/check-android-restoration.py`.
+Set `ADB` if needed. It replaces Navigation history, opens Buttons, restarts on
+Settings and Search, and checks that a deep link leaves Components history
+intact. It expects Components at Home or Buttons and does not clear app data.
