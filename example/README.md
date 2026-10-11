@@ -214,3 +214,16 @@ Components → List appearances selects native styles or provider defaults, with
 headers/footers, accepted/rejected/locked switches and enabled/disabled actions.
 Change appearance after scrolling; return to the top and check Notifications
 retains its value. Form currently supports action/switch descriptors only.
+
+## Example source organization
+
+`App.tsx` owns the application shell, route registry, deep links and persisted
+navigation wiring. `src/screens/` separates buttons, text fields, selection,
+lists/forms, settings, pages, sheets and navigation scenarios. Shared explanatory
+UI lives in `src/shared/demo.tsx`; it does not supply component appearance.
+
+The catalog groups Controls, Lists and forms, Containers and presentation, and
+Navigation behaviors. Each scenario identifies native ownership and behavior
+checks. Appearance, disabled/rejected state and navigation feedback are separate
+checks. Native rendering does not establish a performance benchmark; release
+frame-time/latency measurements remain pending.
