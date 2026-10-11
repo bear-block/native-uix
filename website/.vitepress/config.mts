@@ -17,6 +17,7 @@ export default defineConfig({
       {text: 'Components', link: '/components/'},
       {text: 'Capture plan', link: '/guide/gallery'},
       {text: 'Status', link: '/project/status'},
+      {text: 'Sponsor', link: '/sponsor'},
     ],
     sidebar: [
       {text: 'Start here', items: [
@@ -42,7 +43,8 @@ export default defineConfig({
       {text: 'Project', items: [
         {text: 'Implementation status', link: '/project/status'},
         {text: 'Not implemented yet', link: '/project/coverage'},
-        {text: 'Compatibility', link: '/reference/COMPATIBILITY'},
+        {text: 'Versions, New Arch & Expo', link: '/reference/COMPATIBILITY'},
+        {text: 'Sponsor Native UIX', link: '/sponsor'},
         {text: 'Contributing', link: '/CONTRIBUTING'},
       ]},
     ],

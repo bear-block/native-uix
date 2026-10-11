@@ -24,3 +24,5 @@ features:
 ---
 
 <div class="native-note"><strong>Experimental, not published.</strong> Native UIX is a feasibility implementation, not a production release. The example is the current way to evaluate it. Material 3 Expressive coverage is partial; see the implementation status.</div>
+
+<div class="native-note">Native UIX is independent open source. <a href="./sponsor">Sponsor the work</a> on native implementation, compatibility verification and maintenance.</div>

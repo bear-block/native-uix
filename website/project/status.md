@@ -2,6 +2,14 @@
 
 Updated: 2026-10-11. **Experimental; not a production release.**
 
+## Architecture and version policy
+
+New Architecture is required; Legacy Architecture is excluded. RN 0.87.1 is the
+checked candidate inside a declared `>=0.87.0 <0.88.0` peer range. iOS 15.1 and
+Android API 24 are declared floors, not accepted minimum-OS results. No Expo SDK
+is verified; Expo Go is excluded. See [exact configuration, targets and support
+criteria](../reference/COMPATIBILITY.md).
+
 ## Available to evaluate
 
 - Native controls: Button, Switch, SegmentedControl and single-line TextField.
@@ -41,3 +49,5 @@ and physical devices need their own acceptance.
 - Package release, version support and performance guarantees.
 
 Follow the [component documentation](../components/index.md) for per-API limits.
+
+[Support this work](../sponsor.md) to help turn implementation and compatibility targets into verified results.

@@ -5,6 +5,14 @@ Native UIX is not published for production installation. Evaluate the repository
 and its React Native CLI example. Do not treat an npm install command as a release.
 :::
 
+## Compatibility gate
+
+**New Architecture only.** Current verified candidate: RN 0.87.1 / React 19.2.3.
+Declared floors: iOS 15.1 and Android API 24; boundary OS acceptance remains open.
+Android builds currently compile against SDK 37. No Expo SDK is verified, and
+Expo Go cannot load the custom native components. Read the
+[exact versions and limits](../reference/COMPATIBILITY.md) before choosing a setup.
+
 ## Prerequisites
 
 Use Node 24, the React Native 0.87.1 native toolchain, Xcode/CocoaPods for iOS,

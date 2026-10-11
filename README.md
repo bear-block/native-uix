@@ -4,6 +4,15 @@
 
 Native UIX is a planned native-adaptive React Native UI framework. Its package name is `@bear-block/native-uix`. Define intent once and let iOS and Android deliver their own platform experience.
 
+## Architecture and versions
+
+**New Architecture only (Fabric/Codegen). No Legacy Architecture fallback.**
+Current checked candidate: RN 0.87.1 / React 19.2.3. Declared RN peer range:
+`>=0.87.0 <0.88.0`. Native source declares iOS 15.1 and Android minSdk 24,
+with compileSdk 37; minimum-OS runtime acceptance remains open. No Expo SDK is
+verified; Expo Go is excluded. [Compatibility and support policy](docs/COMPATIBILITY.md)
+separates declarations, executed candidates, future targets and exclusions.
+
 ## Project status
 
 This repository contains an unversioned feasibility spike. It is not ready for installation or production use.
@@ -52,3 +61,10 @@ Experimental [list appearances and sectioned forms](docs/LISTS-AND-FORMS.md) inc
 ## Documentation website
 
 Run `npm --prefix website ci`, then `npm run docs:dev`. Build with `npm run docs:build`. See [website development](website/README.md).
+
+## Support Native UIX
+
+[GitHub Sponsors](https://github.com/sponsors/bear-block) and
+[Buy Me a Coffee](https://buymeacoffee.com/bearblock) support maintainer time for
+native implementation, verification and maintenance. See the
+[Native UIX sponsorship page](website/sponsor.md) for priorities and limits.
