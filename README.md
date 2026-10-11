@@ -8,7 +8,7 @@ Native UIX is a planned native-adaptive React Native UI framework. Its package n
 
 This repository contains an unversioned feasibility spike. It is not ready for installation or production use.
 
-Six experimental components run in the React Native CLI app in [`example/`](example/README.md):
+Experimental components run in the React Native CLI app in [`example/`](example/README.md):
 
 - `Button`: UIKit button configurations on iOS (Liquid Glass on iOS 26+); Material 3 filled or outlined button on Android.
 - `Switch`: controlled; a toggle only requests a change, and the control returns to `value` if the parent rejects it.
@@ -17,11 +17,11 @@ Six experimental components run in the React Native CLI app in [`example/`](exam
 - `TransitionView`: animates children that are replaced (change their `key`) with each platform's own motion — Material fade through or shared axis on Android, on iOS no animation by default (`platform`), or UIKit's cross-dissolve when chosen.
 - `SettingsScreen`: native list from row descriptors; inset grouped table on iOS, Material 3 list on Android.
 
-Debug builds have run on an iOS 27 simulator and an Android 14 emulator. Accessibility, release builds, other OS versions and performance have not been checked yet. Native UIX supports the React Native New Architecture only (React Native 0.87). Expo runtime modules are excluded.
+Debug builds have run on an iOS 27 simulator and an Android 14 emulator. Selected release-consumer checks also exist; broad accessibility, other OS versions and performance acceptance remain open. Native UIX supports the React Native New Architecture only (React Native 0.87). Expo runtime modules are excluded.
 
 ## Navigation direction
 
-Native UIX will own native navigation alongside its UI components, starting with a Stack navigator and platform Back behavior. The goal is one library for native application UI and navigation, without React Navigation as the routing backend. Navigation is planned, not implemented; the current Back example is a text action only. See [navigation ownership and acceptance](docs/NAVIGATION.md).
+Native UIX will own native navigation alongside its UI components, starting with a Stack navigator and platform Back behavior. The goal is one library for native application UI and navigation, without React Navigation as the routing backend. Experimental Stack, Tabs, Sheet and native Back behavior are implemented; broader gesture and lifecycle acceptance remains open. See [navigation ownership and acceptance](docs/NAVIGATION.md).
 
 ## License
 
@@ -46,3 +46,9 @@ iOS 27 terminates apps that do not adopt the UIKit scene lifecycle (`UIApplicati
 Engineering research and planning are kept separately. Everything needed to install, build, test or use the eventual package will live in this repository.
 
 The experimental [Stack](docs/API-PROPOSAL.md#experimental-stack) navigator runs on `UINavigationController` on iOS and a Material app bar with shared-axis transitions and predictive back on Android. Experimental [Tabs](docs/API-PROPOSAL.md#experimental-tabs) use `UITabBarController` on iOS and a Material 3 navigation bar on Android. The example app is built on both: three tabs, each with its own Stack. On Android the header uses Jetpack Compose Material 3 Expressive, which is only available as `material3:1.5.0-alpha06`; it moves to a stable release when one ships.
+
+Experimental [list appearances and sectioned forms](docs/LISTS-AND-FORMS.md) include platform defaults and example galleries.
+
+## Documentation website
+
+Run `npm --prefix website ci`, then `npm run docs:dev`. Build with `npm run docs:build`. See [website development](website/README.md).

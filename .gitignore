@@ -12,3 +12,11 @@ android/build/
 android/.cxx/
 android/**/build/
 
+
+# Documentation output and generated reference mirrors
+website/.vitepress/cache/
+website/.vitepress/dist/
+website/reference/
+website/ARCHITECTURE.md
+website/CONTRIBUTING.md
+website/.vitepress/.temp/
