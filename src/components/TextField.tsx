@@ -1,11 +1,18 @@
 import * as React from 'react';
-import {StyleSheet, type StyleProp, type ViewStyle} from 'react-native';
+import {Platform, StyleSheet, type StyleProp, type ViewStyle} from 'react-native';
+import {useNativeUIXConfig, type TextFieldVariants} from '../NativeUIXProvider';
+import {resolveTextFieldVariant} from '../config';
 import NativeField, {Commands} from '../specs/NativeUIXTextFieldNativeComponent';
 export type TextFieldHandle = {focus: () => void; blur: () => void};
 export type TextFieldProps = {
+  variant?: TextFieldVariants;
   value: string;
   onChangeText: (text: string) => void;
   placeholder?: string;
+  label?: string;
+  helperText?: string;
+  error?: string;
+  passwordToggle?: boolean;
   disabled?: boolean;
   secure?: boolean;
   onFocusChange?: (focused: boolean) => void;
@@ -14,8 +21,10 @@ export type TextFieldProps = {
 };
 /** Experimental single-line native input. The parent owns the committed text. */
 export const TextField = React.forwardRef<TextFieldHandle, TextFieldProps>(function TextField(
-  {value, onChangeText, onFocusChange, onSubmit, style, ...props}, forwardedRef,
+  {variant, value, onChangeText, onFocusChange, onSubmit, style, ...props}, forwardedRef,
 ) {
+  const config = useNativeUIXConfig();
+  const selected = resolveTextFieldVariant(Platform.OS === 'ios' ? 'ios' : 'android', variant, config);
   const ref = React.useRef<React.ComponentRef<typeof NativeField>>(null);
   const latest = React.useRef(0);
   const [, render] = React.useReducer((n: number) => n + 1, 0);
@@ -26,7 +35,7 @@ export const TextField = React.forwardRef<TextFieldHandle, TextFieldProps>(funct
   React.useLayoutEffect(() => {
     if (ref.current) Commands.reconcile(ref.current, value, latest.current);
   });
-  return <NativeField {...props} ref={ref} value={value} style={[styles.field, style]}
+  return <NativeField {...props} variant={selected} ref={ref} value={value} style={[styles.field, {height: (selected === 'outlined' ? 64 : 56) + (Platform.OS === 'ios' && props.label ? 24 : 0) + (props.helperText || props.error ? 28 : 0)}, style]}
     onTextChange={event => {
       latest.current = event.nativeEvent.eventCount;
       onChangeText(event.nativeEvent.text);

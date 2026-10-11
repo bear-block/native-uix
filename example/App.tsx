@@ -2,8 +2,11 @@ import {createMMKV} from 'react-native-mmkv';
 import * as React from 'react';
 import {
   Button,
+  NativeUIXProvider,
   TextField,
   type TextFieldHandle,
+  type ButtonAppearances,
+  type ButtonSizes,
   ScrollingList,
   Sheet,
   SegmentedControl,
@@ -230,7 +233,7 @@ export default function App({startupDelayMs = 0}: {startupDelayMs?: number}): Re
     return () => clearTimeout(timer);
   }, [delay]);
   if (!ready) return <Text accessibilityRole="text">Waiting to mount navigation…</Text>;
-  return <ExampleNavigation />;
+  return <NativeUIXProvider config={{components: {textField: {variant: {ios: 'plain', android: 'outlined'}}, button: {variant: 'secondary'}}}}><ExampleNavigation /></NativeUIXProvider>;
 }
 
 function ExampleNavigation(): React.JSX.Element {
@@ -438,6 +441,7 @@ function ButtonsScreen() {
   const [presses, setPresses] = React.useState(0);
   return (
     <StackScrollView contentContainerStyle={styles.scroll}>
+      <ButtonAppearanceGallery />
       <SectionTitle colors={colors}>Variants</SectionTitle>
       <Button
         label={`Continue (${presses})`}
@@ -1065,19 +1069,90 @@ const styles = StyleSheet.create({
 function TextFieldsScreen() {
   const [value, setValue] = React.useState('Hello');
   const [password, setPassword] = React.useState('');
+  const [showError, setShowError] = React.useState(false);
+  const [secure, setSecure] = React.useState(true);
+  const [toggle, setToggle] = React.useState(true);
   const [log, record] = useLog();
   const field = React.useRef<TextFieldHandle>(null);
   return <StackScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <TextFieldVariantsDemo />
     <Text>Committed text: {value}</Text>
-    <TextField ref={field} value={value} onChangeText={setValue} placeholder="Enter text"
+    <TextField ref={field} value={value} onChangeText={setValue} label="Display name" placeholder="Enter text" helperText="Visible to other people"
+      error={showError ? 'Enter at least three characters' : undefined}
       onFocusChange={focused => record(`Focus: ${focused}`)} onSubmit={text => record(`Submit: ${text}`)} />
+    <Button label={showError ? 'Clear error' : 'Show error'} onPress={() => setShowError(!showError)} />
     <Button label="Focus input" onPress={() => field.current?.focus()} />
     <Button label="Blur input" onPress={() => field.current?.blur()} />
     <Button label="Reset text" onPress={() => setValue('Hello')} />
     <Text>Rejected edits return to the committed text.</Text>
     <TextField value="Locked" onChangeText={() => record('Edit rejected')} />
-    <TextField value={password} onChangeText={setPassword} secure placeholder="Password" />
+    <TextField value={password} onChangeText={setPassword} secure={secure} passwordToggle={toggle}
+      label="Password" placeholder="Enter password" helperText="Use the eye to show or hide; text is not logged" />
+    <Button label={secure ? 'Use plain input' : 'Use secure input'} onPress={() => setSecure(!secure)} />
+    <Button label={toggle ? 'Remove password toggle' : 'Enable password toggle'} onPress={() => setToggle(!toggle)} />
     <TextField value="Disabled" onChangeText={() => {}} disabled />
     {log.map((line, index) => <Text key={`${index}-${line}`}>{line}</Text>)}
   </StackScrollView>;
+}
+
+function TextFieldVariantsDemo() {
+  const [alternate, setAlternate] = React.useState(false);
+  const [values, setValues] = React.useState<Record<string, string>>({});
+  const variants = Platform.OS === 'ios'
+    ? [{ios: 'plain' as const}, {ios: 'rounded' as const}]
+    : [{android: 'outlined' as const}, {android: 'filled' as const}];
+  const configured = alternate ? {ios: 'rounded' as const, android: 'filled' as const}
+    : {ios: 'plain' as const, android: 'outlined' as const};
+  return <NativeUIXProvider config={{components: {textField: {variant: configured}}}}>
+    <Text>Variant defaults and explicit overrides</Text>
+    <Button label={alternate ? 'Use platform defaults' : 'Use alternate defaults'} onPress={() => setAlternate(!alternate)} />
+    <TextField label="From provider" placeholder="No variant prop" helperText="This field follows the provider"
+      value={values.default ?? ''} onChangeText={text => setValues({...values, default: text})} />
+    {variants.map(variant => {
+      const name = 'ios' in variant ? variant.ios : variant.android;
+      return <View key={name} style={{gap: 12}}>
+        <Text>{name} — explicit variant</Text>
+        <TextField variant={variant} label={`${name} normal`} placeholder="Enter text" helperText="Supporting text"
+          value={values[name] ?? ''} onChangeText={text => setValues({...values, [name]: text})} />
+        <TextField variant={variant} label={`${name} error`} error="Check this value" value="Invalid" onChangeText={() => {}} />
+        <TextField variant={variant} label={`${name} disabled`} disabled value="Unavailable" onChangeText={() => {}} />
+        <TextField variant={variant} label={`${name} password`} secure passwordToggle value={values[`${name}-password`] ?? ''}
+          onChangeText={text => setValues({...values, [`${name}-password`]: text})} />
+      </View>;
+    })}
+  </NativeUIXProvider>;
+}
+
+function ButtonAppearanceGallery() {
+  const [alternate, setAlternate] = React.useState(false);
+  const [presses, setPresses] = React.useState(0);
+  const appearance: ButtonAppearances = alternate ? {ios: 'plain', android: 'text'} : {ios: 'automatic', android: 'automatic'};
+  const names: ButtonAppearances[] = Platform.OS === 'ios'
+    ? ['automatic', 'plain', 'gray', 'tinted', 'filled', 'borderless', 'bordered', 'borderedTinted', 'borderedProminent',
+       'glass', 'prominentGlass', 'clearGlass', 'prominentClearGlass'].map(ios => ({ios} as ButtonAppearances))
+    : ['automatic', 'filled', 'tonal', 'outlined', 'text', 'elevated'].map(android => ({android} as ButtonAppearances));
+  const sizes: ButtonSizes[] = Platform.OS === 'ios'
+    ? ['mini', 'small', 'medium', 'large'].map(ios => ({ios} as ButtonSizes))
+    : ['small', 'medium', 'large'].map(android => ({android} as ButtonSizes));
+  const press = () => setPresses(count => count + 1);
+  return <NativeUIXProvider config={{components: {button: {appearance}}}}>
+    <Text>Button appearances — presses: {presses}</Text>
+    <Button label={alternate ? 'Restore button defaults' : 'Change button defaults'} appearance={{ios: 'gray', android: 'outlined'}}
+      onPress={() => setAlternate(!alternate)} />
+    <Button label="Button from provider" onPress={press} />
+    {names.map(item => {
+      const name = item.ios ?? item.android;
+      return <View key={name} style={{gap: 12}}>
+        <Text>{name}</Text>
+        <Button label={`${name} action (${presses})`} appearance={item} onPress={press} />
+        <Button label={`${name} destructive`} appearance={item} destructive onPress={press} />
+        <Button label={`${name} disabled`} appearance={item} disabled onPress={() => setPresses(-999)} />
+      </View>;
+    })}
+    <Text>Native sizing</Text>
+    {sizes.map(item => {
+      const name = item.ios ?? item.android;
+      return <Button key={name} label={`Size ${name}`} appearance={{ios: 'filled', android: 'filled'}} size={item} onPress={press} />;
+    })}
+  </NativeUIXProvider>;
 }

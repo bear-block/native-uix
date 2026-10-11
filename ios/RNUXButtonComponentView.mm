@@ -11,6 +11,8 @@ using namespace facebook::react;
   NativeUIXButtonShadowNode::ConcreteState::Shared _sizeState;
   BOOL _primary;
   BOOL _destructive;
+  NativeUIXButtonAppearance _appearance;
+  NativeUIXButtonSize _buttonSize;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -22,6 +24,8 @@ using namespace facebook::react;
 {
   if (self = [super initWithFrame:frame]) {
     _props = std::make_shared<const NativeUIXButtonProps>();
+    _appearance = NativeUIXButtonAppearance::Automatic;
+    _buttonSize = NativeUIXButtonSize::Large;
     _button = [UIButton buttonWithType:UIButtonTypeSystem];
     _button.configuration = [self configurationForPrimary:NO destructive:NO];
     [_button addTarget:self action:@selector(didPress) forControlEvents:UIControlEventPrimaryActionTriggered];
@@ -42,10 +46,41 @@ using namespace facebook::react;
                             : [UIButtonConfiguration grayButtonConfiguration];
     configuration.cornerStyle = UIButtonConfigurationCornerStyleCapsule;
   }
-  configuration.buttonSize = UIButtonConfigurationSizeLarge;
+  switch (_appearance) {
+    case NativeUIXButtonAppearance::Plain: configuration = [UIButtonConfiguration plainButtonConfiguration]; break;
+    case NativeUIXButtonAppearance::Gray: configuration = [UIButtonConfiguration grayButtonConfiguration]; break;
+    case NativeUIXButtonAppearance::Tinted: configuration = [UIButtonConfiguration tintedButtonConfiguration]; break;
+    case NativeUIXButtonAppearance::Filled: configuration = [UIButtonConfiguration filledButtonConfiguration]; break;
+    case NativeUIXButtonAppearance::Borderless: configuration = [UIButtonConfiguration borderlessButtonConfiguration]; break;
+    case NativeUIXButtonAppearance::Bordered: configuration = [UIButtonConfiguration borderedButtonConfiguration]; break;
+    case NativeUIXButtonAppearance::BorderedTinted: configuration = [UIButtonConfiguration borderedTintedButtonConfiguration]; break;
+    case NativeUIXButtonAppearance::BorderedProminent: configuration = [UIButtonConfiguration borderedProminentButtonConfiguration]; break;
+    case NativeUIXButtonAppearance::Glass:
+    case NativeUIXButtonAppearance::ClearGlass:
+      if (@available(iOS 26.0, *)) configuration = _appearance == NativeUIXButtonAppearance::Glass
+        ? [UIButtonConfiguration glassButtonConfiguration] : [UIButtonConfiguration clearGlassButtonConfiguration];
+      else configuration = [UIButtonConfiguration grayButtonConfiguration];
+      break;
+    case NativeUIXButtonAppearance::ProminentGlass:
+    case NativeUIXButtonAppearance::ProminentClearGlass:
+      if (@available(iOS 26.0, *)) configuration = _appearance == NativeUIXButtonAppearance::ProminentGlass
+        ? [UIButtonConfiguration prominentGlassButtonConfiguration] : [UIButtonConfiguration prominentClearGlassButtonConfiguration];
+      else configuration = [UIButtonConfiguration filledButtonConfiguration];
+      break;
+    default: break;
+  }
+  switch (_buttonSize) {
+    case NativeUIXButtonSize::Mini: configuration.buttonSize = UIButtonConfigurationSizeMini; break;
+    case NativeUIXButtonSize::Small: configuration.buttonSize = UIButtonConfigurationSizeSmall; break;
+    case NativeUIXButtonSize::Medium: configuration.buttonSize = UIButtonConfigurationSizeMedium; break;
+    default: configuration.buttonSize = UIButtonConfigurationSizeLarge; break;
+  }
   configuration.titleLineBreakMode = NSLineBreakByWordWrapping;
   if (destructive) {
-    if (primary) {
+    BOOL filled = _appearance == NativeUIXButtonAppearance::Filled || _appearance == NativeUIXButtonAppearance::BorderedProminent
+      || _appearance == NativeUIXButtonAppearance::ProminentGlass || _appearance == NativeUIXButtonAppearance::ProminentClearGlass
+      || (_appearance == NativeUIXButtonAppearance::Automatic && primary);
+    if (filled) {
       configuration.baseBackgroundColor = UIColor.systemRedColor;
       configuration.baseForegroundColor = UIColor.whiteColor;
     } else {
@@ -64,7 +99,10 @@ using namespace facebook::react;
 
   // Re-assigning the configuration restarts UIKit's press and glass effects,
   // so only do it when something visible changed.
-  BOOL styleChanged = primary != _primary || destructive != _destructive;
+  BOOL styleChanged = primary != _primary || destructive != _destructive
+    || newProps.appearance != _appearance || newProps.size != _buttonSize;
+  _appearance = newProps.appearance;
+  _buttonSize = newProps.size;
   if (styleChanged || ![_button.configuration.title isEqualToString:title]) {
     UIButtonConfiguration *configuration = styleChanged
       ? [self configurationForPrimary:primary destructive:destructive]
@@ -114,7 +152,7 @@ using namespace facebook::react;
   CGFloat width = self.bounds.size.width;
   CGSize natural = [_button sizeThatFits:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)];
   CGSize fitted = width > 0 ? [_button sizeThatFits:CGSizeMake(width, CGFLOAT_MAX)] : natural;
-  [self commitMeasuredSize:CGSizeMake(ceil(natural.width), ceil(MAX(fitted.height, natural.height)))];
+  [self commitMeasuredSize:CGSizeMake(ceil(MAX(natural.width, 44)), ceil(MAX(44, MAX(fitted.height, natural.height))))];
 }
 
 - (void)updateState:(State::Shared const &)state oldState:(State::Shared const &)oldState

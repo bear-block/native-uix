@@ -187,6 +187,22 @@ Only the latest startup URL is retained; this is a single-scene example.
 
 Open Components → Text fields. Try accepted edits, Focus/Blur, Reset, rejected
 Locked edits, password and disabled input, then Done on the native keyboard.
+Check Show/Clear error for helper/error precedence. Type a password and use the
+eye, Use plain/secure input and Remove/Enable password toggle; text and caret
+should survive those changes.
 Committed text callbacks exclude active IME composition; with a composing
 keyboard, finish the candidate/press Done before comparing the JS committed
 value. See [the TextField contract](../docs/TEXT-FIELD.md) for open acceptance.
+
+## Variant gallery
+
+Components → Text fields includes every supported platform TextField variant,
+with normal/helper, error, disabled and password states. The provider-driven
+sample follows Use alternate/platform defaults; explicit variant samples stay
+unchanged. Native appearance comes from the library, not example style patches.
+See [Configuration](../docs/CONFIGURATION.md) for app-wide defaults.
+
+Components → Buttons includes platform appearance factories, normal/destructive/
+disabled samples and size options. Change button defaults updates the provider
+sample without changing explicit samples. See [Button](../docs/BUTTON.md) for
+fallbacks and the Android sizing limits.

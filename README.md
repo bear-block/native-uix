@@ -37,6 +37,9 @@ iOS 27 terminates apps that do not adopt the UIKit scene lifecycle (`UIApplicati
 - [Architecture direction](ARCHITECTURE.md)
 - [Native navigation direction](docs/NAVIGATION.md)
 - [Experimental API proposal](docs/API-PROPOSAL.md)
+- [Component defaults](docs/CONFIGURATION.md)
+- [Experimental Button appearances](docs/BUTTON.md)
+- [Experimental TextField variants](docs/TEXT-FIELD.md)
 - [Compatibility status](docs/COMPATIBILITY.md)
 - [Contributing](CONTRIBUTING.md)
 

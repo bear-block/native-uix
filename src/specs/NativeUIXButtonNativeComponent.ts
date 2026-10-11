@@ -10,6 +10,8 @@ export type NativeUIXPressEvent = Readonly<{
 
 export interface NativeUIXButtonProps extends ViewProps {
   label: string;
+  appearance?: CodegenTypes.WithDefault<'automatic' | 'plain' | 'gray' | 'tinted' | 'filled' | 'borderless' | 'bordered' | 'borderedTinted' | 'borderedProminent' | 'glass' | 'prominentGlass' | 'clearGlass' | 'prominentClearGlass' | 'tonal' | 'outlined' | 'text' | 'elevated', 'automatic'>;
+  size?: CodegenTypes.WithDefault<'mini' | 'small' | 'medium' | 'large', 'large'>;
   variant?: CodegenTypes.WithDefault<NativeButtonVariant, 'secondary'>;
   destructive?: CodegenTypes.WithDefault<boolean, false>;
   disabled?: CodegenTypes.WithDefault<boolean, false>;
