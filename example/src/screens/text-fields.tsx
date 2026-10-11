@@ -5,6 +5,7 @@ import {
   NativeUIXProvider,
   TextField,
   type TextFieldHandle,
+  SegmentedControl,
   StackScrollView
 } from '@bear-block/native-uix';
 import {
@@ -72,3 +73,24 @@ function TextFieldVariantsDemo() {
   </NativeUIXProvider>;
 }
 
+
+export function TextFieldVariantScenario() {
+  const names = Platform.OS === 'ios' ? ['plain', 'rounded'] : ['outlined', 'filled'];
+  const [name, setName] = React.useState(names[0]);
+  const [value, setValue] = React.useState('Hello');
+  const variant = Platform.OS === 'ios' ? {ios: name as 'plain' | 'rounded'} : {android: name as 'outlined' | 'filled'};
+  return <StackScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <SegmentedControl segments={names.map(id => ({id, label: id}))} value={name} onValueChange={setName} />
+    <TextField variant={variant} label="Native text field" value={value} onChangeText={setValue} helperText="Type to verify the chosen variant" />
+  </StackScrollView>;
+}
+export function TextFieldStateScenario() {
+  const [value, setValue] = React.useState('Hello');
+  const [error, setError] = React.useState(false);
+  return <StackScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+    <TextField label="Supporting text" value={value} onChangeText={setValue} helperText="Helper text" error={error ? 'Check this value' : undefined} />
+    <Button label={error ? 'Clear error' : 'Show error'} onPress={() => setError(v => !v)} />
+    <TextField label="Disabled" value="Unavailable" disabled onChangeText={() => {}} />
+    <TextField label="Password" secure passwordToggle value={value} onChangeText={setValue} />
+  </StackScrollView>;
+}

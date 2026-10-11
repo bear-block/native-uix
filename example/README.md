@@ -227,3 +227,20 @@ Navigation behaviors. Each scenario identifies native ownership and behavior
 checks. Appearance, disabled/rejected state and navigation feedback are separate
 checks. Native rendering does not establish a performance benchmark; release
 frame-time/latency measurements remain pending.
+
+## Recording-ready scenario navigation
+
+Component routes open an overview/directory rather than immediately mounting a
+long gallery. Button and TextField have separate bounded variant, state and
+behavior demos. Variant stages select one platform appearance at a time.
+Other component families separate presentation scope from state/interaction
+scenarios; combined interaction demos remain where splitting would lose context
+(for example dependent settings rows or form scroll/value retention).
+
+All scenarios and Reset scenario remain outside the demo's native scroll host.
+Reset dismisses the keyboard and remounts the selected demo, clearing local
+values, logs and scroll state. It does not erase persisted navigation history or
+reset the app's selected tab. All scenarios returns to the component directory.
+Capture publication is deferred. Record the selected scenario, appearance, OS,
+theme and source revision when recording later. After this navigation change,
+older tap scripts that assumed an immediately visible gallery need updating.

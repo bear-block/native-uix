@@ -4,6 +4,7 @@ import {
   NativeUIXProvider,
   type ButtonAppearances,
   type ButtonSizes,
+  SegmentedControl,
   StackScrollView
 } from '@bear-block/native-uix';
 import {
@@ -112,3 +113,34 @@ function ButtonAppearanceGallery() {
   </NativeUIXProvider>;
 }
 
+
+export function ButtonVariantScenario() {
+  const names = Platform.OS === 'ios'
+    ? ['automatic', 'plain', 'gray', 'tinted', 'filled', 'borderless', 'bordered', 'borderedTinted', 'borderedProminent', 'glass', 'prominentGlass', 'clearGlass', 'prominentClearGlass']
+    : ['automatic', 'filled', 'tonal', 'outlined', 'text', 'elevated'];
+  const [index, setIndex] = React.useState(0);
+  const [size, setSize] = React.useState(Platform.OS === 'ios' ? 'large' : 'small');
+  const [count, setCount] = React.useState(0);
+  const appearance = {[Platform.OS]: names[index]} as ButtonAppearances;
+  return <StackScrollView contentContainerStyle={styles.scroll}>
+    <Text>Appearance: {names[index]} · presses: {count}</Text>
+    <View style={styles.row}>
+      <Button label="Previous variant" disabled={index === 0} onPress={() => setIndex(i => i - 1)} />
+      <Button label="Next variant" disabled={index === names.length - 1} onPress={() => setIndex(i => i + 1)} />
+    </View>
+    <SegmentedControl segments={(Platform.OS === 'ios' ? ['mini', 'small', 'medium', 'large'] : ['small', 'medium', 'large']).map(id => ({id, label: id}))}
+      value={size} onValueChange={setSize} />
+    <Button label="Native action" appearance={appearance} size={{[Platform.OS]: size} as ButtonSizes} onPress={() => setCount(n => n + 1)} />
+    <Button label="Destructive action" destructive appearance={appearance} size={{[Platform.OS]: size} as ButtonSizes} onPress={() => setCount(n => n + 1)} />
+    <Button label="Disabled action" disabled appearance={appearance} size={{[Platform.OS]: size} as ButtonSizes} onPress={() => setCount(-999)} />
+  </StackScrollView>;
+}
+export function ButtonStateScenario() {
+  const [count, setCount] = React.useState(0);
+  return <StackScrollView contentContainerStyle={styles.scroll}>
+    <Text>Enabled presses: {count}</Text>
+    <Button label="Enabled" onPress={() => setCount(n => n + 1)} />
+    <Button label="Disabled" disabled onPress={() => setCount(-999)} />
+    <Button label="Destructive" destructive onPress={() => setCount(n => n + 1)} />
+  </StackScrollView>;
+}

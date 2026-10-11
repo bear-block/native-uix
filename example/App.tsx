@@ -1,3 +1,4 @@
+import {scenarioScreen, NoAdditionalVariants} from './src/shared/scenarios';
 import * as React from 'react';
 import {
   createMMKV
@@ -28,12 +29,12 @@ import {
 } from 'react-native';
 import {useColors, styles} from './src/shared/demo';
 import {RestorationContext} from './src/shared/restoration';
-import {ButtonsScreen} from './src/screens/buttons';
+import {ButtonsScreen, ButtonVariantScenario, ButtonStateScenario} from './src/screens/buttons';
 import {SwitchesScreen, SegmentedScreen} from './src/screens/selection';
 import {TabsScreen} from './src/screens/pages';
 import {SettingsDemo} from './src/screens/settings';
 import {ListScreen, ListAppearancesScreen, FormScreen} from './src/screens/lists';
-import {TextFieldsScreen} from './src/screens/text-fields';
+import {TextFieldsScreen, TextFieldVariantScenario, TextFieldStateScenario} from './src/screens/text-fields';
 import {ModalScreen, SheetScreen} from './src/screens/sheets';
 import {NavigationScreen, navigationHeader} from './src/screens/navigation';
 
@@ -100,27 +101,52 @@ function Home({ navigation }: StackScreenProps) {
   );
 }
 
+const scenario = (id: string, title: string, detail: string, component: React.ComponentType<StackScreenProps>) => ({id, title, detail, component});
+const ButtonScenarios = scenarioScreen('Button', 'UIButton / MaterialButton; native press feedback and measurement.', [
+  scenario('variants', 'Appearance and size', 'One appearance at a time, with size and state samples.', ButtonVariantScenario),
+  scenario('states', 'Enabled, disabled, destructive', 'Initial count 0; disabled must never fire.', ButtonStateScenario),
+  scenario('behavior', 'Defaults, events and sizing', 'Provider updates, callbacks and long labels.', ButtonsScreen),
+]);
+const FieldScenarios = scenarioScreen('TextField', 'UITextField / Material TextInputLayout; native keyboard input.', [
+  scenario('variants', 'Platform variants', 'One variant at a time; initial value Hello.', TextFieldVariantScenario),
+  scenario('states', 'Helper, error, disabled, secure', 'Toggle error; compare committed input states.', TextFieldStateScenario),
+  scenario('behavior', 'Focus, rejection and secure changes', 'Focus/blur, rejected edits and password toggle.', TextFieldsScreen),
+]);
+function groupedScenarios(name: string, native: string, component: React.ComponentType<StackScreenProps>, variants?: React.ComponentType<StackScreenProps>) {
+  return scenarioScreen(name, native, [
+    scenario('variants', 'Presentation', variants ? 'Platform appearance and provider defaults.' : 'Current presentation scope; no invented variants.', variants ?? NoAdditionalVariants),
+    scenario('behavior', 'States and interactions', 'Exercise the component checks; Reset remounts this demo.', component),
+  ]);
+}
+const SwitchScenarios = groupedScenarios('Switch', 'UISwitch / MaterialSwitch; controlled value requests.', SwitchesScreen);
+const SegmentScenarios = groupedScenarios('SegmentedControl', 'Native persistent single selection.', SegmentedScreen);
+const PageScenarios = groupedScenarios('TabContent', 'Mounted native page hosts and transition policies.', TabsScreen);
+const SheetScenarios = groupedScenarios('Sheet', 'Native detents and dismissal.', SheetScreen);
+const ListScenarios = groupedScenarios('ScrollingList', 'UITableView / RecyclerView owns scrolling.', ListScreen, ListAppearancesScreen);
+const FormScenarios = groupedScenarios('Form', 'Native sectioned action/switch rows.', FormScreen, FormScreen);
+const SettingsScenarios = groupedScenarios('Settings', 'Native recycled rows and controlled requests.', SettingsDemo);
+
 const screens: Record<string, StackScreenDefinition> = {
   home: {
     component: Home,
     header: { title: 'Native UIX', subtitle: PLATFORM_LINE },
   },
   listappearances: {component: ListAppearancesScreen, header: {title: 'List appearances', size: 'compact'}},
-  form: {component: FormScreen, header: {title: 'Form and sections', size: 'compact'}},
-  textfield: {component: TextFieldsScreen, header: {title: 'Text fields'}},
-  buttons: { component: ButtonsScreen, header: { title: 'Buttons' } },
-  switches: { component: SwitchesScreen, header: { title: 'Switches' } },
+  form: {component: FormScenarios, header: {title: 'Form and sections', size: 'compact'}},
+  textfield: {component: FieldScenarios, header: {title: 'Text fields'}},
+  buttons: { component: ButtonScenarios, header: { title: 'Buttons' } },
+  switches: { component: SwitchScenarios, header: { title: 'Switches' } },
   segmented: {
-    component: SegmentedScreen,
+    component: SegmentScenarios,
     header: { title: 'Segmented control', size: 'compact' },
   },
   tabs: {
-    component: TabsScreen,
+    component: PageScenarios,
     header: { title: 'In-screen tabs', size: 'compact' },
   },
-  settings: { component: SettingsDemo, header: { title: 'Settings' } },
+  settings: { component: SettingsScenarios, header: { title: 'Settings' } },
   list: {
-    component: ListScreen,
+    component: ListScenarios,
     header: {
       title: 'Library',
       subtitle: 'Your reading collection',
@@ -136,7 +162,7 @@ const screens: Record<string, StackScreenDefinition> = {
   },
   navigation: { component: NavigationScreen, header: navigationHeader },
   sheet: {
-    component: SheetScreen,
+    component: SheetScenarios,
     header: { title: 'Sheet', size: 'compact' },
   },
   compose: {
