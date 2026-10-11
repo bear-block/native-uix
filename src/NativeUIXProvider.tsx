@@ -1,7 +1,7 @@
 import * as React from 'react';
 
 import {mergeNativeUIXConfig, type NativeUIXConfig} from './config';
-export type {NativeUIXConfig, TextFieldVariants, ButtonAppearances, ButtonSizes} from './config';
+export type {NativeUIXConfig, TextFieldVariants, ButtonAppearances, ButtonSizes, ListAppearances} from './config';
 const ConfigContext = React.createContext<NativeUIXConfig>({});
 /** App defaults. Nested providers override only the supplied component options. */
 export function NativeUIXProvider({config, children}: {

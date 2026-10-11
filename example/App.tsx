@@ -8,6 +8,9 @@ import {
   type ButtonAppearances,
   type ButtonSizes,
   ScrollingList,
+  Form,
+  Section,
+  type ListAppearances,
   Sheet,
   SegmentedControl,
   SettingsScreen,
@@ -57,6 +60,8 @@ const PLATFORM_LINE =
     : 'Material 3 with dynamic color';
 
 const HOME_ITEMS: ScrollingItem[] = [
+  {id: 'listappearances', section: 'Containers', title: 'List appearances', subtitle: 'Native styles, defaults and scroll preservation', action: true},
+  {id: 'form', section: 'Containers', title: 'Form and sections', subtitle: 'Headers, footers, actions and controlled switches', action: true},
   {id: 'textfield', section: 'Controls', title: 'Text fields', subtitle: 'Single line, secure, rejected edits, focus and submit', action: true},
   {
     id: 'buttons',
@@ -171,6 +176,8 @@ const screens: Record<string, StackScreenDefinition> = {
     component: Home,
     header: { title: 'Native UIX', subtitle: PLATFORM_LINE },
   },
+  listappearances: {component: ListAppearancesScreen, header: {title: 'List appearances', size: 'compact'}},
+  form: {component: FormScreen, header: {title: 'Form and sections', size: 'compact'}},
   textfield: {component: TextFieldsScreen, header: {title: 'Text fields'}},
   buttons: { component: ButtonsScreen, header: { title: 'Buttons' } },
   switches: { component: SwitchesScreen, header: { title: 'Switches' } },
@@ -1156,3 +1163,61 @@ function ButtonAppearanceGallery() {
     })}
   </NativeUIXProvider>;
 }
+
+const LIST_APPEARANCES: ListAppearances[] = Platform.OS === 'ios'
+  ? [{ios: 'plain'}, {ios: 'grouped'}, {ios: 'insetGrouped'}]
+  : [{android: 'plain'}, {android: 'divided'}];
+const appearanceName = (appearance: ListAppearances) => Platform.OS === 'ios' ? appearance.ios! : appearance.android!;
+function AppearanceControls({selected, onSelect, defaultIndex, onDefault}: {
+  selected: string; onSelect: (id: string) => void; defaultIndex: number; onDefault: () => void;
+}) {
+  return <View style={listDemoStyles.controls}>
+    <SegmentedControl segments={[{id: 'default', label: 'Default'}, ...LIST_APPEARANCES.map(a => ({id: appearanceName(a), label: appearanceName(a)}))]}
+      value={selected} onValueChange={onSelect} />
+    <Button label={`Change list default (${appearanceName(LIST_APPEARANCES[defaultIndex])})`} onPress={onDefault} />
+  </View>;
+}
+function useListAppearanceDemo() {
+  const [selected, setSelected] = React.useState('default');
+  const [defaultIndex, setDefaultIndex] = React.useState(LIST_APPEARANCES.length - 1);
+  const appearance = selected === 'default' ? undefined : LIST_APPEARANCES.find(a => appearanceName(a) === selected);
+  const defaults = LIST_APPEARANCES[defaultIndex];
+  return {appearance, defaults, controls: <AppearanceControls selected={selected} onSelect={setSelected}
+    defaultIndex={defaultIndex} onDefault={() => setDefaultIndex(i => (i + 1) % LIST_APPEARANCES.length)} />};
+}
+function ListAppearancesScreen() {
+  const {appearance, defaults, controls} = useListAppearanceDemo();
+  const [count, setCount] = React.useState(0);
+  return <NativeUIXProvider config={{components: {scrollingList: {appearance: defaults}}}}>
+    <View style={listDemoStyles.screen}>{controls}<Text style={listDemoStyles.status}>List presses: {count}</Text>
+      <ScrollingList appearance={appearance} items={LIST_ITEMS} onItemPress={() => setCount(n => n + 1)} />
+    </View>
+  </NativeUIXProvider>;
+}
+function FormScreen() {
+  const {appearance, defaults, controls} = useListAppearanceDemo();
+  const [notifications, setNotifications] = React.useState(true);
+  const [count, setCount] = React.useState(0);
+  return <NativeUIXProvider config={{components: {form: {appearance: defaults}}}}>
+    <View style={listDemoStyles.screen}>{controls}<Text style={listDemoStyles.status}>Form presses: {count}; notifications: {notifications ? 'on' : 'off'}</Text>
+      <Form appearance={appearance} onAction={action => {
+        if (action.type === 'press') setCount(n => n + 1);
+        else if (action.rowId === 'form-notifications') setNotifications(action.value);
+      }}>
+        <Section id="preferences" title="Preferences" footer="Rejected stays off; Locked cannot change. Values remain when appearance changes."
+          rows={[
+            {id: 'form-notifications', kind: 'switch', label: 'Form notifications', value: notifications},
+            {id: 'form-rejected', kind: 'switch', label: 'Rejected switch', value: false},
+            {id: 'form-locked', kind: 'switch', label: 'Locked switch', value: true, disabled: true},
+          ]} />
+        <Section id="actions" title="Actions" footer="Only enabled actions update the count."
+          rows={[{id: 'form-action', kind: 'action', label: 'Form action'},
+            {id: 'form-disabled', kind: 'action', label: 'Disabled form action', disabled: true}]} />
+        <Section id="more" title="Scroll preservation" footer="End of form"
+          rows={Array.from({length: 60}, (_, i) => ({id: `form-row-${i + 1}`, kind: 'action' as const, label: `Form row ${i + 1}`}))} />
+      </Form>
+    </View>
+  </NativeUIXProvider>;
+}
+
+const listDemoStyles = StyleSheet.create({controls: {padding: 12, gap: 8}, screen: {flex: 1}, status: {paddingHorizontal: 16}});

@@ -27,6 +27,7 @@ Currently configurable components:
 | Component | Config option | Library default |
 | --- | --- | --- |
 | TextField | `components.textField.variant` | iOS `plain`, Android `outlined` |
+| ScrollingList / SettingsScreen / Form | `components.scrollingList.appearance`, `components.settingsScreen.appearance`, `components.form.appearance` | iOS insetGrouped / Android plain; independent component defaults |
 | Button | `components.button.variant`, `.appearance`, `.size` | `secondary` / `automatic`; iOS large, Android small |
 
 Other components retain their existing APIs; they do not yet expose provider
@@ -35,3 +36,5 @@ platform mapping and an example for its states. No unsupported variant names are
 silently mapped to an unrelated platform appearance in the public typed API.
 
 See [Button](BUTTON.md) for native surfaces and sizes, and [TextField](TEXT-FIELD.md) for the platform variants and capture gallery.
+
+See [Lists and forms](LISTS-AND-FORMS.md) for native appearance choices and the bounded Form/Section contract.

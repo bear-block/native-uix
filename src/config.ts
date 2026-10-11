@@ -3,19 +3,31 @@ export type ButtonAppearances = {
   android?: 'automatic' | 'filled' | 'tonal' | 'outlined' | 'text' | 'elevated';
 };
 export type ButtonSizes = {ios?: 'mini' | 'small' | 'medium' | 'large'; android?: 'small' | 'medium' | 'large'};
+export type ListAppearances = {ios?: 'plain' | 'grouped' | 'insetGrouped'; android?: 'plain' | 'divided'};
 export type TextFieldVariants = {
   ios?: 'plain' | 'rounded';
   android?: 'filled' | 'outlined';
 };
 export type NativeUIXConfig = {
   components?: {
+    scrollingList?: {appearance?: ListAppearances};
+    settingsScreen?: {appearance?: ListAppearances};
+    form?: {appearance?: ListAppearances};
     textField?: {variant?: TextFieldVariants};
     button?: {variant?: 'primary' | 'secondary'; appearance?: ButtonAppearances; size?: ButtonSizes};
   };
 };
 
 export function mergeNativeUIXConfig(parent: NativeUIXConfig, config: NativeUIXConfig): NativeUIXConfig {
+  const lists = Object.fromEntries(['scrollingList', 'settingsScreen', 'form'].map(key => {
+    const component = key as 'scrollingList' | 'settingsScreen' | 'form';
+    return [component, {appearance: {
+      ios: config.components?.[component]?.appearance?.ios ?? parent.components?.[component]?.appearance?.ios,
+      android: config.components?.[component]?.appearance?.android ?? parent.components?.[component]?.appearance?.android,
+    }}];
+  }));
   return {components: {
+    ...lists,
     textField: {variant: {
       ios: config.components?.textField?.variant?.ios ?? parent.components?.textField?.variant?.ios,
       android: config.components?.textField?.variant?.android ?? parent.components?.textField?.variant?.android,
@@ -45,4 +57,10 @@ export function resolveButtonOptions(platform: 'ios' | 'android', variant: 'prim
     appearance: appearance?.[platform] ?? config.components?.button?.appearance?.[platform] ?? 'automatic',
     size: size?.[platform] ?? config.components?.button?.size?.[platform] ?? (platform === 'ios' ? 'large' : 'small'),
   };
+}
+
+export function resolveListAppearance(platform: 'ios' | 'android', component: 'scrollingList' | 'settingsScreen' | 'form',
+  appearance: ListAppearances | undefined, config: NativeUIXConfig) {
+  return appearance?.[platform] ?? config.components?.[component]?.appearance?.[platform]
+    ?? (platform === 'ios' ? 'insetGrouped' : 'plain');
 }

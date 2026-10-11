@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mergeNativeUIXConfig, resolveTextFieldVariant, resolveButtonOptions} from '../src/config.ts';
+import {mergeNativeUIXConfig, resolveTextFieldVariant, resolveButtonOptions, resolveListAppearance} from '../src/config.ts';
 
 test('text fields use platform fallbacks, app defaults, then per-field overrides', () => {
   assert.equal(resolveTextFieldVariant('ios', undefined, {}), 'plain');
@@ -32,4 +32,16 @@ test('button emphasis, native appearance and size resolve independently per plat
   assert.deepEqual(resolveButtonOptions('android', undefined, undefined, undefined, child), {variant: 'primary', appearance: 'tonal', size: 'medium'});
   assert.deepEqual(resolveButtonOptions('ios', 'secondary', {ios: 'filled'}, {ios: 'mini'}, child), {variant: 'secondary', appearance: 'filled', size: 'mini'});
   assert.deepEqual(resolveButtonOptions('ios', undefined, undefined, undefined, child), {variant: 'primary', appearance: 'plain', size: 'small'});
+});
+
+test('list defaults remain independent across components and inherit the other platform', () => {
+  const parent = {components: {form: {appearance: {ios: 'grouped', android: 'divided'}}, scrollingList: {appearance: {ios: 'plain'}}}};
+  const child = mergeNativeUIXConfig(parent, {components: {form: {appearance: {ios: 'insetGrouped'}}}});
+  assert.equal(resolveListAppearance('android', 'form', undefined, child), 'divided');
+  assert.equal(resolveListAppearance('ios', 'form', undefined, child), 'insetGrouped');
+  assert.equal(resolveListAppearance('ios', 'scrollingList', undefined, child), 'plain');
+  assert.equal(resolveListAppearance('ios', 'settingsScreen', undefined, child), 'insetGrouped');
+  assert.equal(resolveListAppearance('android', 'scrollingList', undefined, child), 'plain');
+  assert.equal(resolveListAppearance('android', 'form', {android: 'plain'}, child), 'plain');
+  assert.equal(parent.components.form.appearance.ios, 'grouped');
 });

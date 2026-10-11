@@ -8,14 +8,14 @@ export type SettingsRow =
       disabled?: boolean;
     };
 
-export type SettingsSection = {id: string; title?: string; rows: SettingsRow[]};
+export type SettingsSection = {id: string; title?: string; footer?: string; rows: SettingsRow[]};
 
 export type SettingsAction =
   | {type: 'press'; rowId: string}
   | {type: 'valueChange'; rowId: string; value: boolean};
 
 export type FlatSettingsItem = {
-  kind: 'header' | 'action' | 'switch';
+  kind: 'header' | 'footer' | 'action' | 'switch';
   id: string;
   sectionId: string;
   label: string;
@@ -32,6 +32,7 @@ export function flattenSettings(sections: SettingsSection[]): FlatSettingsItem[]
   const rowIds = new Set<string>();
   const items: FlatSettingsItem[] = [];
   for (const section of sections) {
+    if (!section.id) throw new Error('SettingsScreen requires nonempty section IDs.');
     if (sectionIds.has(section.id)) {
       throw new Error(`SettingsScreen: duplicate section id "${section.id}"`);
     }
@@ -45,6 +46,7 @@ export function flattenSettings(sections: SettingsSection[]): FlatSettingsItem[]
       disabled: false,
     });
     for (const row of section.rows) {
+      if (!row.id) throw new Error('SettingsScreen requires nonempty row IDs.');
       if (rowIds.has(row.id)) {
         throw new Error(`SettingsScreen: duplicate row id "${row.id}"`);
       }
@@ -63,6 +65,8 @@ export function flattenSettings(sections: SettingsSection[]): FlatSettingsItem[]
         disabled: row.disabled ?? false,
       });
     }
+    if (section.footer) items.push({kind: 'footer', id: section.id, sectionId: section.id,
+      label: section.footer, value: false, disabled: false});
   }
   return items;
 }

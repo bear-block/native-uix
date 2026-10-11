@@ -18,6 +18,7 @@ export type NativeUIXSettingsActionEvent = Readonly<{
 }>;
 
 export interface NativeUIXSettingsProps extends ViewProps {
+  appearance?: CodegenTypes.WithDefault<'plain' | 'grouped' | 'insetGrouped' | 'divided', 'insetGrouped'>;
   screenTitle?: string;
   items: ReadonlyArray<NativeUIXSettingsItem>;
   // Incremented after every native request so rejected requests are reconciled.

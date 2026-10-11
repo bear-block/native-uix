@@ -48,3 +48,11 @@ test('maps native events to typed actions', () => {
   );
   assert.equal(toSettingsAction({type: 'other', rowId: 'c', value: false}), null);
 });
+
+test('section footers are non-interactive and follow all section rows', () => {
+  const flat = flattenSettings([{...sections[0], footer: 'This setting syncs.'}, {id: 'empty', title: 'Empty', rows: [], footer: 'No values.'}]);
+  assert.deepEqual(flat[3], {kind: 'footer', id: 'general', sectionId: 'general', label: 'This setting syncs.', value: false, disabled: false});
+  assert.deepEqual(flat.slice(4).map(item => item.kind), ['header', 'footer']);
+  assert.throws(() => flattenSettings([{id: '', rows: []}]), /nonempty section/);
+  assert.throws(() => flattenSettings([{id: 's', rows: [{id: '', kind: 'action', label: 'Empty'}]}]), /nonempty row/);
+});

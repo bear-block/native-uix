@@ -15,6 +15,7 @@ import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.ViewManagerDelegate
 import com.facebook.react.viewmanagers.NativeUIXSettingsManagerDelegate
 import com.facebook.react.viewmanagers.NativeUIXSettingsManagerInterface
+import com.google.android.material.divider.MaterialDividerItemDecoration
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.materialswitch.MaterialSwitch
 import androidx.core.view.ViewCompat
@@ -35,10 +36,13 @@ private const val TYPE_TITLE = 0
 private const val TYPE_HEADER = 1
 private const val TYPE_ACTION = 2
 private const val TYPE_SWITCH = 3
+private const val TYPE_FOOTER = 4
 
 /** Native Material 3 settings list. Rows are recycled; only visible rows exist. */
 class NativeUIXSettingsView(context: ThemedReactContext) : NativeUIXHostLayout(context) {
   private var themed: Context = materialContext(context)
+  private var appearance = "plain"
+  private var divider: MaterialDividerItemDecoration? = null
   private var title = ""
   private var items: List<SettingsItem> = emptyList()
   private var lastItems: ReadableArray? = null
@@ -57,6 +61,7 @@ class NativeUIXSettingsView(context: ThemedReactContext) : NativeUIXHostLayout(c
 
   override fun onNightModeChanged() {
     themed = materialContext(context)
+    updateDivider()
     list.setBackgroundColor(MaterialColors.getColor(themed, com.google.android.material.R.attr.colorSurface, 0))
     // Re-attaching the adapter recreates every row with the new theme; the
     // layout manager state keeps the user's scroll position.
@@ -80,6 +85,30 @@ class NativeUIXSettingsView(context: ThemedReactContext) : NativeUIXHostLayout(c
 
   /** Re-applies the committed items, restoring a rejected switch. */
   fun reapply() = setItems(lastItems)
+
+
+  fun setAppearance(value: String?) {
+    val next = value ?: "plain"
+    if (appearance == next) return
+    appearance = next
+    // Decoration changes retain the same recycler, layout manager and row state.
+    val state = list.layoutManager?.onSaveInstanceState()
+    updateDivider()
+    state?.let { list.layoutManager?.onRestoreInstanceState(it) }
+  }
+
+  private fun updateDivider() {
+    divider?.let { list.removeItemDecoration(it) }
+    divider = if (appearance == "divided") object : MaterialDividerItemDecoration(themed, LinearLayoutManager.VERTICAL) {
+      override fun shouldDrawDivider(position: Int, adapter: RecyclerView.Adapter<*>?): Boolean =
+        itemAt(position)?.kind in listOf("action", "switch") && itemAt(position + 1)?.kind in listOf("action", "switch")
+    }.apply {
+      dividerInsetStart = dp(16)
+      dividerInsetEnd = dp(16)
+      isLastItemDecorated = false
+      list.addItemDecoration(this)
+    } else null
+  }
 
   fun setItems(array: ReadableArray?) {
     lastItems = array
@@ -131,6 +160,7 @@ class NativeUIXSettingsView(context: ThemedReactContext) : NativeUIXHostLayout(c
     override fun getItemViewType(position: Int): Int = when (itemAt(position)?.kind) {
       null -> TYPE_TITLE
       "header" -> TYPE_HEADER
+      "footer" -> TYPE_FOOTER
       "switch" -> TYPE_SWITCH
       else -> TYPE_ACTION
     }
@@ -148,6 +178,11 @@ class NativeUIXSettingsView(context: ThemedReactContext) : NativeUIXHostLayout(c
           setTextColor(MaterialColors.getColor(this, androidx.appcompat.R.attr.colorPrimary))
           setPadding(dp(16), dp(24), dp(16), dp(8))
           ViewCompat.setAccessibilityHeading(this, true)
+        }
+        TYPE_FOOTER -> TextView(themed).apply {
+          setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+          setTextColor(MaterialColors.getColor(this, com.google.android.material.R.attr.colorOnSurfaceVariant))
+          setPadding(dp(16), dp(8), dp(16), dp(16))
         }
         TYPE_SWITCH -> MaterialSwitch(themed).apply {
           setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyLarge)
@@ -228,6 +263,8 @@ class NativeUIXSettingsManager :
   override fun createViewInstance(reactContext: ThemedReactContext) = NativeUIXSettingsView(reactContext)
 
   override fun setScreenTitle(view: NativeUIXSettingsView, value: String?) = view.setScreenTitle(value)
+
+  override fun setAppearance(view: NativeUIXSettingsView, value: String?) = view.setAppearance(value)
 
   override fun setItems(view: NativeUIXSettingsView, value: ReadableArray?) = view.setItems(value)
 

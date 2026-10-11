@@ -47,4 +47,7 @@ export type {StackState, StackRouteInput, StackLinking, StackLinkSource} from '.
 export {TextField} from './components/TextField';
 export type {TextFieldProps, TextFieldHandle} from './components/TextField';
 
-export {NativeUIXProvider, type NativeUIXConfig, type TextFieldVariants, type ButtonAppearances, type ButtonSizes} from './NativeUIXProvider';
+export {NativeUIXProvider, type NativeUIXConfig, type TextFieldVariants, type ButtonAppearances, type ButtonSizes, type ListAppearances} from './NativeUIXProvider';
+
+export {Form, Section} from './components/Form';
+export type {FormProps, SectionProps} from './components/Form';

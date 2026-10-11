@@ -206,3 +206,11 @@ Components → Buttons includes platform appearance factories, normal/destructiv
 disabled samples and size options. Change button defaults updates the provider
 sample without changing explicit samples. See [Button](../docs/BUTTON.md) for
 fallbacks and the Android sizing limits.
+
+## List and form galleries
+
+Components → List appearances selects native styles or provider defaults, with
+80 rows to check scroll preservation. Components → Form and sections demonstrates
+headers/footers, accepted/rejected/locked switches and enabled/disabled actions.
+Change appearance after scrolling; return to the top and check Notifications
+retains its value. Form currently supports action/switch descriptors only.

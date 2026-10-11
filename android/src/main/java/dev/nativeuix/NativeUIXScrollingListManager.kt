@@ -19,6 +19,7 @@ import com.facebook.react.uimanager.ThemedReactContext
 import com.facebook.react.uimanager.ViewManagerDelegate
 import com.facebook.react.viewmanagers.NativeUIXScrollingListManagerDelegate
 import com.facebook.react.viewmanagers.NativeUIXScrollingListManagerInterface
+import com.google.android.material.divider.MaterialDividerItemDecoration
 import com.google.android.material.color.MaterialColors
 
 private data class ListRow(
@@ -39,6 +40,8 @@ private const val TYPE_ROW = 1
 /** Native Material 3 sectioned list. Rows are recycled; nested scrolling drives the app bar. */
 class NativeUIXScrollingListView(context: ThemedReactContext) : NativeUIXHostLayout(context) {
   private var themed: Context = materialContext(context)
+  private var appearance = "plain"
+  private var divider: MaterialDividerItemDecoration? = null
   private var entries: List<ListEntry> = emptyList()
   private val adapter = ListAdapter()
   private val list = RecyclerView(themed).apply {
@@ -53,12 +56,37 @@ class NativeUIXScrollingListView(context: ThemedReactContext) : NativeUIXHostLay
 
   override fun onNightModeChanged() {
     themed = materialContext(context)
+    updateDivider()
     list.setBackgroundColor(MaterialColors.getColor(themed, com.google.android.material.R.attr.colorSurface, 0))
     val scrollState = list.layoutManager?.onSaveInstanceState()
     list.recycledViewPool.clear()
     list.adapter = null
     list.adapter = adapter
     scrollState?.let { list.layoutManager?.onRestoreInstanceState(it) }
+  }
+
+
+  fun setAppearance(value: String?) {
+    val next = value ?: "plain"
+    if (appearance == next) return
+    appearance = next
+    // Decoration changes retain the same recycler, layout manager and row state.
+    val state = list.layoutManager?.onSaveInstanceState()
+    updateDivider()
+    state?.let { list.layoutManager?.onRestoreInstanceState(it) }
+  }
+
+  private fun updateDivider() {
+    divider?.let { list.removeItemDecoration(it) }
+    divider = if (appearance == "divided") object : MaterialDividerItemDecoration(themed, LinearLayoutManager.VERTICAL) {
+      override fun shouldDrawDivider(position: Int, adapter: RecyclerView.Adapter<*>?): Boolean =
+        entries.getOrNull(position)?.row != null && entries.getOrNull(position + 1)?.row != null
+    }.apply {
+      dividerInsetStart = dp(16)
+      dividerInsetEnd = dp(16)
+      isLastItemDecorated = false
+      list.addItemDecoration(this)
+    } else null
   }
 
   fun setItems(array: ReadableArray?) {
@@ -165,6 +193,8 @@ class NativeUIXScrollingListManager :
   override fun getDelegate(): ViewManagerDelegate<NativeUIXScrollingListView> = delegate
 
   override fun createViewInstance(reactContext: ThemedReactContext) = NativeUIXScrollingListView(reactContext)
+
+  override fun setAppearance(view: NativeUIXScrollingListView, value: String?) = view.setAppearance(value)
 
   override fun setItems(view: NativeUIXScrollingListView, value: ReadableArray?) = view.setItems(value)
 }

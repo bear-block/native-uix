@@ -4,6 +4,8 @@
 #import <react/renderer/components/NativeUIXSpec/EventEmitters.h>
 #import <react/renderer/components/NativeUIXSpec/Props.h>
 
+#import "RNUXTablePosition.h"
+
 using namespace facebook::react;
 
 @interface RNUXSettingsRow : NSObject
@@ -19,6 +21,7 @@ using namespace facebook::react;
 
 @interface RNUXSettingsSection : NSObject
 @property (nonatomic, copy) NSString *title;
+@property (nonatomic, copy) NSString *footer;
 @property (nonatomic, strong) NSMutableArray<RNUXSettingsRow *> *rows;
 @end
 
@@ -32,6 +35,7 @@ static NSString *const kCellId = @"row";
 
 @implementation RNUXSettingsComponentView {
   UITableView *_tableView;
+  NSDictionary *_pendingPosition;
   UILabel *_titleLabel;
   NSArray<RNUXSettingsSection *> *_sections;
   CGFloat _headerWidth;
@@ -47,12 +51,7 @@ static NSString *const kCellId = @"row";
   if (self = [super initWithFrame:frame]) {
     _props = std::make_shared<const NativeUIXSettingsProps>();
     _sections = @[];
-    _tableView = [[UITableView alloc] initWithFrame:self.bounds style:UITableViewStyleInsetGrouped];
-    _tableView.dataSource = self;
-    _tableView.delegate = self;
-    // Insets follow the safe area and a navigation bar above, as in UIKit.
-    _tableView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentAutomatic;
-    [_tableView registerClass:UITableViewCell.class forCellReuseIdentifier:kCellId];
+    [self installTableWithStyle:UITableViewStyleInsetGrouped];
     _titleLabel = [UILabel new];
     _titleLabel.font = [UIFont preferredFontForTextStyle:UIFontTextStyleLargeTitle];
     _titleLabel.font = [UIFont fontWithDescriptor:[_titleLabel.font.fontDescriptor fontDescriptorWithSymbolicTraits:UIFontDescriptorTraitBold] size:0];
@@ -63,13 +62,58 @@ static NSString *const kCellId = @"row";
   return self;
 }
 
+
+- (void)installTableWithStyle:(UITableViewStyle)style
+{
+  _tableView.delegate = nil;
+  _tableView.dataSource = nil;
+  _tableView = [[UITableView alloc] initWithFrame:self.bounds style:style];
+  _tableView.dataSource = self;
+  _tableView.delegate = self;
+  _tableView.semanticContentAttribute = self.semanticContentAttribute;
+  _tableView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentAutomatic;
+  _tableView.rowHeight = UITableViewAutomaticDimension;
+  _tableView.estimatedRowHeight = 64;
+  [_tableView registerClass:UITableViewCell.class forCellReuseIdentifier:kCellId];
+  self.contentView = _tableView;
+}
+
+- (NSIndexPath *)indexForRowId:(NSString *)identity
+{
+  for (NSUInteger section = 0; section < _sections.count; section++) {
+    for (NSUInteger row = 0; row < _sections[section].rows.count; row++) {
+      if ([_sections[section].rows[row].rowId isEqualToString:identity]) return [NSIndexPath indexPathForRow:row inSection:section];
+    }
+  }
+  return nil;
+}
+- (void)restorePendingPosition
+{
+  if (!_pendingPosition || self.bounds.size.height <= 0) return;
+  RNUXRestoreTablePosition(_tableView, _pendingPosition, ^NSIndexPath *(NSString *identity) {
+    return [self indexForRowId:identity];
+  });
+  _pendingPosition = nil;
+}
+
 - (void)updateProps:(Props::Shared const &)props oldProps:(Props::Shared const &)oldProps
 {
   const auto &newProps = *std::static_pointer_cast<NativeUIXSettingsProps const>(props);
+  UITableViewStyle style = newProps.appearance == NativeUIXSettingsAppearance::Plain ? UITableViewStylePlain
+    : newProps.appearance == NativeUIXSettingsAppearance::Grouped ? UITableViewStyleGrouped : UITableViewStyleInsetGrouped;
+  BOOL appearanceChanged = _tableView.style != style;
+  if (appearanceChanged) {
+    _pendingPosition = RNUXCaptureTablePosition(_tableView, ^NSString *(NSIndexPath *path) { return [self rowAtIndexPath:path].rowId; });
+    [self installTableWithStyle:style];
+  }
   NSMutableArray<RNUXSettingsSection *> *sections = [NSMutableArray new];
   for (const auto &item : newProps.items) {
     NSString *kind = [NSString stringWithUTF8String:item.kind.c_str()];
     NSString *label = [NSString stringWithUTF8String:item.label.c_str()];
+    if ([kind isEqualToString:@"footer"]) {
+      sections.lastObject.footer = label;
+      continue;
+    }
     if ([kind isEqualToString:@"header"]) {
       RNUXSettingsSection *section = [RNUXSettingsSection new];
       section.title = label.length > 0 ? label : nil;
@@ -85,7 +129,7 @@ static NSString *const kCellId = @"row";
     row.disabled = item.disabled;
     [sections.lastObject.rows addObject:row];
   }
-  BOOL sameStructure = _sections.count > 0 && [[self structureOf:sections] isEqualToString:[self structureOf:_sections]];
+  BOOL sameStructure = !appearanceChanged && _sections.count > 0 && [[self structureOf:sections] isEqualToString:[self structureOf:_sections]];
   _sections = sections;
 
   NSString *title = newProps.screenTitle.empty() ? nil : [NSString stringWithUTF8String:newProps.screenTitle.c_str()];
@@ -103,7 +147,11 @@ static NSString *const kCellId = @"row";
   } else {
     [_tableView reloadData];
   }
+  if (_pendingPosition) RNUXRestoreTablePosition(_tableView, _pendingPosition, ^NSIndexPath *(NSString *identity) {
+    return [self indexForRowId:identity];
+  });
   [super updateProps:props oldProps:oldProps];
+  [self setNeedsLayout];
 }
 
 // Row identity and order; values and labels are not part of it.
@@ -111,7 +159,7 @@ static NSString *const kCellId = @"row";
 {
   NSMutableString *key = [NSMutableString new];
   for (RNUXSettingsSection *section in sections) {
-    [key appendFormat:@"[%@", section.title ?: @""];
+    [key appendFormat:@"[%@:%@", section.title ?: @"", section.footer ?: @""];
     for (RNUXSettingsRow *row in section.rows) {
       [key appendFormat:@"|%@:%@", row.kind, row.rowId];
     }
@@ -142,6 +190,7 @@ static NSString *const kCellId = @"row";
 - (void)layoutSubviews
 {
   [super layoutSubviews];
+  [self restorePendingPosition];
   if (fabs(_headerWidth - self.bounds.size.width) > 0.5) {
     [self updateHeader];
   }
@@ -165,6 +214,11 @@ static NSString *const kCellId = @"row";
 - (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section
 {
   return _sections[section].title;
+}
+
+- (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section
+{
+  return _sections[section].footer;
 }
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
@@ -235,6 +289,7 @@ static NSString *const kCellId = @"row";
 - (void)prepareForRecycle
 {
   [super prepareForRecycle];
+  _pendingPosition = nil;
   _sections = @[];
   [_tableView reloadData];
   [_tableView setContentOffset:CGPointZero animated:NO];

@@ -11,6 +11,7 @@ export type NativeScrollingItem = Readonly<{
 }>;
 
 export interface NativeProps extends ViewProps {
+  appearance?: CodegenTypes.WithDefault<'plain' | 'grouped' | 'insetGrouped' | 'divided', 'insetGrouped'>;
   items: ReadonlyArray<NativeScrollingItem>;
   onItemPress?: CodegenTypes.DirectEventHandler<Readonly<{id: string}>>;
 }
